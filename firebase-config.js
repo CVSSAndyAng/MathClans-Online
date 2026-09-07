@@ -1,18 +1,13 @@
-/* MathClans V1.6 Firebase configuration
-   Replace the empty values with the Web App config copied from Firebase Console.
-   This config is safe to expose in a browser app; security comes from Firebase rules.
-*/
 window.MATHCLANS_FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: "",
-  databaseURL: ""
+  apiKey: "AIzaSyDpBl9L4-i7ExXjhNGSJOJa5X7J2SD1xCQ",
+  authDomain: "mathclans-online.firebaseapp.com",
+  projectId: "mathclans-online",
+  storageBucket: "mathclans-online.firebasestorage.app",
+  messagingSenderId: "414206166419",
+  appId: "1:414206166419:web:f5320546d31a1ee29c5466",
+  databaseURL: "https://mathclans-online-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
-/* Optional: restrict sign-in to a school domain, e.g. "schools.gov.sg".
-   Leave blank during setup/testing. Client-side domain checks are convenience only;
-   enforce real access control with your Auth / Firestore rules and admin policy. */
+// Optional: restrict Google login to your school domain later.
+// Leave blank for our first connection test.
 window.MATHCLANS_ALLOWED_EMAIL_DOMAIN = "";
