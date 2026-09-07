@@ -53,6 +53,7 @@ const SUBSKILLS={
  statistics:['Mean / median / mode','Probability','Quartiles & IQR','Standard deviation','Data displays']
 };
 let selectedMembers=new Set();
+let pendingWarSelection=[];
 let activeSkill=null,currentQuestion=null,battle=null,pendingEnemy=null,selectedFormation='balanced';
 window.MathClansGame={
   setMembers(list){
@@ -394,18 +395,23 @@ function answerQuestion(i){const chosen=currentQuestion.opts[i],correctIndex=cur
 // ----- Clan clash -----
 function openBattlePicker(){
  if(window.MathClansClans?.isOnlineMode?.()&&!window.MathClansClans?.isLiveClan?.()){toast('Join or create an online clan before deploying.');return}
- if(selectedMembers.size<1){goScreen('clan');toast('Select 1 available member to march.');return}
- showModal(`<span class="eyebrow">WAR COUNCIL · STEP 1</span><h3>Choose a target</h3><p>Your army has <b>${selectedMembers.size}</b> troop${selectedMembers.size>1?'s':''}. Select the rival headquarters you want to attack.</p>${rivals.map((r,i)=>`<div class="rival-item battle-pick" data-i="${i}"><div class="rival-crest">${r.crest}</div><div><strong>${r.name}</strong><small>${r.region} · Rating ${r.rating}</small></div><div class="rating-pill">SELECT</div></div>`).join('')}<div class="modal-actions"><button class="secondary" data-close>Cancel</button></div>`);
- $('[data-close]').onclick=closeModal;$$('.battle-pick').forEach(el=>el.onclick=()=>{pendingEnemy=+el.dataset.i;openWarCouncil(pendingEnemy)});
+ const selectedEntries=[...selectedMembers].map(idx=>({idx,member:members[idx]})).filter(x=>x.member);
+ if(selectedEntries.length<1){goScreen('clan');toast('Select 1 available member to march.');return}
+ // Freeze the chosen roster for the whole War Council flow. Realtime Firebase roster refreshes
+ // may reorder/replace the members array while the modal is open, but they must not erase the army.
+ pendingWarSelection=selectedEntries.map(({idx,member})=>({idx,uid:member.uid||null,member:{...member,skills:{...(member.skills||{})}}}));
+ const n=pendingWarSelection.length;
+ showModal(`<span class="eyebrow">WAR COUNCIL · STEP 1</span><h3>Choose a target</h3><p>Your army has <b>${n}</b> troop${n>1?'s':''}. Select the rival headquarters you want to attack.</p>${rivals.map((r,i)=>`<div class="rival-item battle-pick" data-i="${i}"><div class="rival-crest">${r.crest}</div><div><strong>${r.name}</strong><small>${r.region} · Rating ${r.rating}</small></div><div class="rating-pill">SELECT</div></div>`).join('')}<div class="modal-actions"><button class="secondary" data-close>Cancel</button></div>`);
+ $('[data-close]').onclick=()=>{pendingWarSelection=[];closeModal()};$$('.battle-pick').forEach(el=>el.onclick=()=>{pendingEnemy=+el.dataset.i;openWarCouncil(pendingEnemy)});
 }
 function openWarCouncil(i){
  const enemy=rivals[i];
- const selectedEntries=[...selectedMembers].map(idx=>({idx,member:members[idx]})).filter(x=>x.member);
+ const selectedEntries=(pendingWarSelection||[]).map(x=>({idx:x.idx,uid:x.uid,member:x.member})).filter(x=>x.member);
  const team=selectedEntries.map(x=>x.member);
  if(!enemy||team.length<1){closeModal();goScreen('clan');toast('Your selected roster changed. Select 1 available member again.');return}
  const avg=k=>Math.round(team.reduce((a,m)=>a+(Number(m?.skills?.[k])||0),0)/team.length);
  showModal(`<span class="eyebrow">WAR COUNCIL · STEP 2</span><h3>${state.clan.guardian} ${state.clan.name} → ${enemy.crest} ${enemy.name}</h3><p>Choose a formation before your ${team.length}-troop army marches to ${enemy.region}. Formation bonuses are deliberately small so live Maths performance remains decisive.</p><div class="war-team-preview">${team.map(m=>`<div><span>${m.avatar}</span><small>${m.name}</small></div>`).join('')}</div><div class="war-stat-grid">${Object.entries(SKILLS).map(([k,s])=>`<div><span>${s.icon} ${s.name}</span><b>${avg(k)}</b></div>`).join('')}</div><div class="formation-picker">${Object.entries(FORMATIONS).map(([k,f])=>`<button type="button" class="formation-card ${selectedFormation===k?'selected':''}" data-formation="${k}"><span>${f.icon}</span><strong>${f.name}</strong><small>${f.desc}</small></button>`).join('')}</div><div class="modal-actions"><button type="button" class="secondary" id="warBack">Back</button><button type="button" class="primary" id="confirmMarch">Deploy ${team.length} Troop${team.length>1?'s':''}</button></div>`);
- $('#warBack').onclick=()=>{closeModal();if(selectedMembers.size)openBattlePicker();else goScreen('clan')};
+ $('#warBack').onclick=()=>{closeModal();if(pendingWarSelection.length){const n=pendingWarSelection.length;showModal(`<span class="eyebrow">WAR COUNCIL · STEP 1</span><h3>Choose a target</h3><p>Your army has <b>${n}</b> troop${n>1?'s':''}. Select the rival headquarters you want to attack.</p>${rivals.map((r,j)=>`<div class="rival-item battle-pick" data-i="${j}"><div class="rival-crest">${r.crest}</div><div><strong>${r.name}</strong><small>${r.region} · Rating ${r.rating}</small></div><div class="rating-pill">SELECT</div></div>`).join('')}<div class="modal-actions"><button class="secondary" data-close>Cancel</button></div>`);$('[data-close]').onclick=()=>{pendingWarSelection=[];closeModal()};$$('.battle-pick').forEach(el=>el.onclick=()=>{pendingEnemy=+el.dataset.i;openWarCouncil(pendingEnemy)});}else goScreen('clan')};
  $$('.formation-card').forEach(b=>b.onclick=()=>{selectedFormation=b.dataset.formation;openWarCouncil(i)});
  $('#confirmMarch').onclick=()=>{
    const rallySelection=selectedEntries.map(({idx,member})=>({idx,...member}));
@@ -415,10 +421,11 @@ function openWarCouncil(i){
        // Remap accepted members by UID in case a realtime roster refresh changed array indexes.
        const acceptedEntries=selectedEntries.filter(x=>acceptedIdx.includes(x.idx));
        const remapped=acceptedEntries.map(x=>x.member.uid?members.findIndex(m=>m.uid===x.member.uid):x.idx).filter(idx=>idx>=0);
+       pendingWarSelection=[];
        if(!remapped.length){closeModal();goScreen('clan');toast('The accepted roster changed. Please rally again.');return}
        selectedMembers=new Set(remapped);closeModal();marchToRival(i);
      });
-   }else{closeModal();marchToRival(i)}
+   }else{pendingWarSelection=[];closeModal();marchToRival(i)}
  };
 }
 function marchToRival(i){
