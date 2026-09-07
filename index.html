@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>MathClans: Battle for Lion City — V1.7 Online Clans + Adaptive Training</title>
+  <title>MathClans: Battle for Lion City — V1.7.1 Rally + Training Quality</title>
   <meta name="theme-color" content="#17130f" />
-  <link rel="stylesheet" href="styles.css?v=1.6.1" />
+  <link rel="stylesheet" href="styles.css?v=1.7.1" />
 </head>
 <body>
   <div id="app">
     <header class="topbar">
       <div class="brand"><div class="brand-gem">π</div><div><h1>MathClans</h1><span>Battle for Lion City</span></div></div>
       <div class="player-strip"><div class="mini-avatar" id="miniAvatar">🐲</div><div><strong id="playerName">Player One</strong><small>Lv <span id="playerLevel">1</span> · <span id="playerXp">0</span> XP</small></div></div>
-      <div class="top-actions"><button id="accountBtn" class="account-btn" type="button" aria-label="Player account"><span id="accountDot" class="account-dot demo"></span><span id="accountText">Local Demo</span></button><div class="audio-controls" aria-label="Audio controls"><button id="audioToggle" class="audio-toggle" type="button" aria-pressed="true">Sound ON</button><label class="volume-control" for="volumeSlider"><span>Vol</span><input id="volumeSlider" type="range" min="0" max="100" step="1" value="35" aria-label="Game volume"><b id="volumeValue">35%</b></label></div><div class="currency"><span>💎</span><b id="crystals">250</b></div></div>
+      <div class="top-actions"><button id="helpBtn" class="account-btn" type="button" aria-label="How to play">❔ <span>How to Play</span></button><button id="accountBtn" class="account-btn" type="button" aria-label="Player account"><span id="accountDot" class="account-dot demo"></span><span id="accountText">Local Demo</span></button><div class="audio-controls" aria-label="Audio controls"><button id="audioToggle" class="audio-toggle" type="button" aria-pressed="true">Sound ON</button><label class="volume-control" for="volumeSlider"><span>Vol</span><input id="volumeSlider" type="range" min="0" max="100" step="1" value="35" aria-label="Game volume"><b id="volumeValue">35%</b></label></div><div class="currency"><span>💎</span><b id="crystals">250</b></div></div>
     </header>
 
     <div class="skill-hud" id="skillHud" aria-label="Mathematical skill levels"></div>
@@ -91,7 +91,7 @@
 
       <section id="screen-clan" class="screen">
         <div class="section-head"><div><span class="eyebrow">CLAN HALL</span><h2 id="clanTitle">Merlion Scholars</h2><p>Choose 1–10 available members for war. Each selected member becomes one deployed troop. Battle scoring uses team averages, so larger teams do not automatically win.</p></div><button class="primary" id="editClanBtn">Edit Clan</button></div>
-        <div class="online-clan-panel fantasy-panel" id="onlineClanPanel"><div><span class="eyebrow">V1.7 ONLINE CLAN</span><strong id="onlineClanStatus">Checking Firebase clan membership…</strong><small id="onlineClanHint">Signed-in players can create or join a real clan with up to 30 members.</small></div><div class="online-clan-actions" id="onlineClanActions"></div></div>
+        <div class="online-clan-panel fantasy-panel" id="onlineClanPanel"><div><span class="eyebrow">V1.7.1 ONLINE CLAN</span><strong id="onlineClanStatus">Checking Firebase clan membership…</strong><small id="onlineClanHint">Signed-in players can create or join a real clan with up to 30 members.</small></div><div class="online-clan-actions" id="onlineClanActions"></div></div>
         <div class="presence-strip fantasy-panel" id="presenceStrip">
           <div><span>👥 MEMBERS</span><b id="presenceMembers">10</b></div>
           <div><span>🟢 ONLINE</span><b id="presenceOnline">0</b></div>
@@ -135,14 +135,14 @@
     <nav class="bottom-nav"><button class="active" data-screen="map"><span>🗺</span>Map</button><button data-screen="train"><span>📚</span>Train</button><button data-screen="clan"><span>🏰</span>Clan</button><button data-screen="hero"><span>🐲</span>Hero</button><button data-screen="battle"><span>⚔</span>Battle</button><button data-screen="ranking"><span>🏆</span>Rank</button></nav>
   </div>
   <div id="modalBackdrop" class="modal-backdrop hidden"><div class="modal fantasy-panel" id="modal"></div></div>
-  <script src="app.js?v=1.7.0"></script>
+  <script src="app.js?v=1.7.1"></script>
   <!-- Firebase compat SDKs: keep these before firebase-config.js and online.js -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=1.6.0"></script>
-  <script src="online.js?v=1.7.0"></script>
-  <script src="clans.js?v=1.7.0"></script>
+  <script src="online.js?v=1.7.1"></script>
+  <script src="clans.js?v=1.7.1"></script>
 </body>
 </html>

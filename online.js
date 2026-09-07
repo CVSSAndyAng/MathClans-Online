@@ -145,8 +145,13 @@
         activity: document.body?.dataset?.screen==='battle'?'battle':document.body?.dataset?.screen==='train'?'training':'online',
         lastChanged: firebase.database.ServerValue.TIMESTAMP
       }).catch(()=>{});
-    }, 30000);
+    }, 10000);
   }
+
+  document.addEventListener('visibilitychange',()=>{
+    if(!user||!rtdb)return;
+    rtdb.ref(`presence/${user.uid}`).update({state:document.hidden?'away':'online',lastChanged:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{});
+  });
 
   async function signInGoogle() {
     try {
@@ -205,6 +210,8 @@
     accountLabel(state?.player?.name || user.displayName || 'Online', 'online');
     startProfileWatch();
     startPresence();
+    const guideKey=`mathclans-guide-v171-${user.uid}`;
+    if(!localStorage.getItem(guideKey)){localStorage.setItem(guideKey,'1');setTimeout(()=>window.MathClansGameHelp?.show?.(true),450);}
     syncTimer = setInterval(() => syncProgress(false), 15000);
   }
 

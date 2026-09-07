@@ -1,13 +1,24 @@
 {
   "rules": {
-    ".read": false,
-    ".write": false,
     "presence": {
-      "$uid": {
-        ".read": "auth != null",
-        ".write": "auth != null && auth.uid === $uid",
-        ".validate": "newData.hasChildren(['state','lastChanged'])"
-      }
+      ".read": "auth != null",
+      "$uid": { ".write": "auth != null && auth.uid === $uid" }
+    },
+    "warReady": {
+      ".read": "auth != null",
+      "$uid": { ".write": "auth != null && auth.uid === $uid" }
+    },
+    "warRallies": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "rallyInvites": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "activeBattles": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
