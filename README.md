@@ -1,40 +1,24 @@
-# MathClans V1.7.1e
+# MathClans V1.8 — Real War Lobby + Deployment
 
-MCQ distractor quality upgrade: all four choices use comparable worked mathematical steps, with wrong options based on plausible student misconceptions rather than generic filler text.
+V1.8 builds on V1.7.2. It adds real clan ranking display, real Firebase clan targets, clan-to-clan challenge inboxes, a defending 20-second voluntary rally, and a synchronized deployment countdown before an active battle session.
 
-Upload `app.js` and `index.html` to GitHub over V1.7.1d.
-# MathClans V1.7.1b — Rally + Training Quality Patch
+## New in V1.8
+- YOUR CLAN map card shows the current real clan rank.
+- Ranking is calculated from Firestore clan ratings.
+- War Council lists real online clans rather than only simulated rivals.
+- Attacking clan rallies 1–10 members first.
+- Target clan receives an incoming challenge.
+- Any member of the target clan can answer the challenge and call the defence rally.
+- Defenders get the same 20-second Accept/Reject rally.
+- Accepted members from both clans are stored in one Firebase active battle session.
+- All accepted players enter a 6-second synchronized deployment/march state.
+- Battle screen opens automatically for accepted participants when deployment ends.
 
-This patch builds on V1.7 and adds the gameplay fixes requested during testing.
-
-## Included in V1.7.1b
-- Fixes clan members appearing OFFLINE by allowing authenticated roster reads of Realtime Database presence and War Ready state.
-- Presence heartbeat shortened to 10 seconds and visibility changes update presence immediately.
-- Worked MCQ choices are visually balanced so the correct answer is not simply the choice with the most steps.
-- Wrong choices continue to represent common mistakes such as sign/inverse-operation errors, formula/substitution errors and incomplete simplification; short choices are expanded into comparable worked reasoning.
-- First successful login shows a How to Play guide. A persistent How to Play button is available in the top bar.
-- Last member leaving a clan deletes the clan automatically (existing V1.7 behavior retained).
-- Leaders/officers can call a consensual Rally for War for selected members.
-- Rally maximum wait is 20 seconds; Accept/Reject responses update live and the rally closes early when everyone responds.
-- Only accepted members deploy. No response by the deadline is treated as not joining.
-- During a battle, a selected participant detected as disconnected is assigned 0 for simulated teammate scoring and remains part of the team denominator.
+## Important scope
+V1.8 establishes the real war lobby and deployment state. The current battle client still calculates combat locally per side. Fully synchronized cross-clan scoring, shared HP and authoritative result resolution are the V1.9 milestone.
 
 ## Upload to GitHub
-Replace: `index.html`, `styles.css`, `app.js`, `online.js`, `clans.js`, `database.rules.json`, and `README.md`.
-Keep your existing configured `firebase-config.js`.
-Keep the `assets/` folder.
+Replace index.html, styles.css, app.js, clans.js, database.rules.json and README.md. Keep your configured firebase-config.js. online.js can also be uploaded from this package; it is compatible with V1.8.
 
-## Firebase rule change required
-Publish the included `database.rules.json` in Firebase Realtime Database Rules. Firestore rules are unchanged from V1.7.
-
-## Important V1.7.1b limitation
-Clan membership, presence and rally invitations are real Firebase data. The actual opponent battle simulation is still the V1.7 client-side battle model; fully synchronized multi-device live battles remain a later milestone.
-
-
-## V1.7.2 test fixes
-- Players choose a public display name and avatar; Google email remains private.
-- Any clan member can call a Rally for War.
-- Leaving a clan immediately removes the player from the roster.
-- A leader may leave; leadership transfers to the longest-serving remaining member.
-- Shared active-battle sessions notify every accepted participant and open the battle screen on each device.
-- Accepted participants publish deployed/battle presence instead of reverting to online.
+## Firebase
+Publish the new database.rules.json in Realtime Database Rules before testing live clan challenges. Firestore rules remain compatible.

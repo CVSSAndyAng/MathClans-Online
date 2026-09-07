@@ -1,10 +1,10 @@
-/* MathClans V1.7.1 real clans + presence + 20-second consensual war rally */
+/* MathClans V1.8 real clans + ranking + live war lobby/deployment */
 (() => {
 'use strict';
 const $=q=>document.querySelector(q);
 const panel=$('#onlineClanPanel'),status=$('#onlineClanStatus'),hint=$('#onlineClanHint'),actions=$('#onlineClanActions');
 if(!panel)return;
-let auth,db,rtdb,user=null,clan=null,memberUnsub=null,presenceUnsub=null,readyUnsub=null,inviteUnsub=null,battleUnsub=null,profiles=new Map(),memberRows=[],presence={},ready={},activeInviteId=null,activeBattleId=null;
+let auth,db,rtdb,user=null,clan=null,memberUnsub=null,presenceUnsub=null,readyUnsub=null,inviteUnsub=null,battleUnsub=null,challengeUnsub=null,profiles=new Map(),memberRows=[],presence={},ready={},activeInviteId=null,activeBattleId=null,activeChallengeId=null;
 const regions=['Central','Tampines','Sengkang','Jurong','Woodlands','Bedok','Punggol','Bishan'];
 const guardians=['🐉','🐙','🦊','🐼','🦉','🐢','🦁','🦄'];
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -101,15 +101,70 @@ async function reportBattleScore(id,score,correct,elapsed){
 async function finishBattleForPlayer(id){if(!user||!id)return;const base=rtdb.ref(`activeBattles/${id}`);await base.child(`participants/${user.uid}`).update({status:'finished',lastSeen:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{});const snap=await base.once('value').catch(()=>null);const data=snap?.val?.()||{};const ps=Object.values(data.participants||{});if(ps.length&&ps.every(x=>x.status==='finished'||x.status==='left'))await base.update({status:'ended',endedAt:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{})}
 function watchActiveBattles(){
  if(battleUnsub){battleUnsub();battleUnsub=null}if(!user||!clan)return;
- const ref=rtdb.ref('activeBattles');const handler=snap=>{const all=snap.val()||{};let found=null;for(const [id,b] of Object.entries(all)){if(b?.status==='active'&&Number(b?.endsAt||0)>Date.now()&&b?.clanId===clan.id&&b?.participants?.[user.uid]){found={id,...b};break}}if(!found)return;activeBattleId=found.id;window.MathClansOnline?.setActivity?.('battle');window.MathClansGame?.joinSharedBattle?.(found.id,found)};ref.on('value',handler);battleUnsub=()=>ref.off('value',handler);
+ const ref=rtdb.ref('activeBattles');const handler=snap=>{const all=snap.val()||{};let found=null;for(const [id,b] of Object.entries(all)){if((b?.status==='active'||b?.status==='deploying')&&Number(b?.endsAt||0)>Date.now()&&b?.participants?.[user.uid]){found={id,...b};break}}if(!found)return;activeBattleId=found.id;window.MathClansOnline?.setActivity?.('battle');if(found.status==='deploying'&&Date.now()<Number(found.battleStartsAt||0)){showDeployment(found.id,found);return}if(found.status==='deploying')rtdb.ref(`activeBattles/${found.id}`).update({status:'active'}).catch(()=>{});window.MathClansGame?.joinSharedBattle?.(found.id,{...found,status:'active'})};ref.on('value',handler);battleUnsub=()=>ref.off('value',handler);
 }
 function roleFromSkills(sk){if(!sk)return'algebra';return Object.keys(SKILLS).sort((a,b)=>(sk[b]||0)-(sk[a]||0))[0]||'algebra'}
 async function rebuildRoster(){if(!clan)return;const rows=[];for(const m of memberRows){let p=profiles.get(m.uid);if(!p){try{const ps=await db.collection('players').doc(m.uid).get();p=ps.data()||{};profiles.set(m.uid,p)}catch(e){p={}}}const pr=presence[m.uid]||{},wr=ready[m.uid]||{};let status='offline';if(pr.state==='online'||pr.state==='away')status=wr.ready?'ready':pr.activity==='training'?'training':pr.activity==='battle'?'deployed':'online';rows.push({uid:m.uid,name:m.displayName||p.displayName||'Mathling',avatar:m.avatar||p.avatar||'🐲',role:roleFromSkills(p.skills),status,skills:{algebra:p.skills?.algebra||1,geometry:p.skills?.geometry||1,trigonometry:p.skills?.trigonometry||1,statistics:p.skills?.statistics||1}})}window.MathClansGame?.setMembers?.(rows);window.MathClansGame?.setClan?.({...clan,memberCount:rows.length});}
 function startRealtime(){if(presenceUnsub)presenceUnsub();if(readyUnsub)readyUnsub();const pref=rtdb.ref('presence'),wref=rtdb.ref('warReady');const ph=s=>{const prev=presence;presence=s.val()||{};for(const uid of Object.keys(prev||{})){if((prev[uid]?.state==='online'||prev[uid]?.state==='away')&&presence[uid]?.state==='offline')window.MathClansGame?.markBattleParticipantLeft?.(uid)}rebuildRoster()},wh=s=>{ready=s.val()||{};rebuildRoster()};pref.on('value',ph);wref.on('value',wh);presenceUnsub=()=>pref.off('value',ph);readyUnsub=()=>wref.off('value',wh)}
-function stopWatchers(){if(memberUnsub)memberUnsub();if(presenceUnsub)presenceUnsub();if(readyUnsub)readyUnsub();if(inviteUnsub)inviteUnsub();if(battleUnsub)battleUnsub();memberUnsub=presenceUnsub=readyUnsub=inviteUnsub=battleUnsub=null;profiles.clear();activeBattleId=null}
-async function loadClan(id){stopWatchers();if(!id){clan=null;updatePanel();return}try{const ref=db.collection('clans').doc(id),snap=await ref.get();if(!snap.exists){state.player.clanId=null;state.player.clanRole=null;save();clan=null;updatePanel();return}clan={id:snap.id,...snap.data()};window.MathClansGame?.setClan?.(clan);updatePanel();memberUnsub=ref.collection('members').onSnapshot(ms=>{memberRows=ms.docs.map(d=>d.data());const mine=memberRows.find(m=>m.uid===user?.uid);if(mine?.role&&state.player.clanRole!==mine.role){state.player.clanRole=mine.role;save();window.MathClansGame?.setPlayerClan?.(clan.id,mine.role)}clan.memberCount=memberRows.length;updatePanel();rebuildRoster()},e=>console.warn('clan members',e));startRealtime();watchRallyInvites();watchActiveBattles()}catch(e){console.error(e);status.textContent='Could not load online clan';hint.textContent='Check Firestore rules and connection.'}}
+function stopWatchers(){if(memberUnsub)memberUnsub();if(presenceUnsub)presenceUnsub();if(readyUnsub)readyUnsub();if(inviteUnsub)inviteUnsub();if(battleUnsub)battleUnsub();if(challengeUnsub)challengeUnsub();memberUnsub=presenceUnsub=readyUnsub=inviteUnsub=battleUnsub=challengeUnsub=null;profiles.clear();activeBattleId=null}
+async function loadClan(id){stopWatchers();if(!id){clan=null;updatePanel();return}try{const ref=db.collection('clans').doc(id),snap=await ref.get();if(!snap.exists){state.player.clanId=null;state.player.clanRole=null;save();clan=null;updatePanel();return}clan={id:snap.id,...snap.data()};window.MathClansGame?.setClan?.(clan);updatePanel();memberUnsub=ref.collection('members').onSnapshot(ms=>{memberRows=ms.docs.map(d=>d.data());const mine=memberRows.find(m=>m.uid===user?.uid);if(mine?.role&&state.player.clanRole!==mine.role){state.player.clanRole=mine.role;save();window.MathClansGame?.setPlayerClan?.(clan.id,mine.role)}clan.memberCount=memberRows.length;updatePanel();rebuildRoster()},e=>console.warn('clan members',e));startRealtime();watchRallyInvites();watchIncomingChallenges();watchActiveBattles();refreshClanRanking()}catch(e){console.error(e);status.textContent='Could not load online clan';hint.textContent='Check Firestore rules and connection.'}}
+
+// ===== V1.8 real ranking + clan-vs-clan war lobby =====
+async function refreshClanRanking(){
+ if(!db||!clan)return;
+ try{
+   const snap=await db.collection('clans').orderBy('rating','desc').limit(200).get();
+   const rows=snap.docs.map((d,i)=>{const x=d.data()||{};return{id:d.id,name:x.name||'Clan',crest:x.guardian||'🐉',guardian:x.guardian||'🐉',region:x.region||'—',rating:Number(x.rating||1500),memberCount:Number(x.memberCount||0),rank:i+1,you:d.id===clan.id}});
+   const mine=rows.find(x=>x.id===clan.id);if(mine){clan.ranking=mine.rank;window.MathClansGame?.setClan?.({...clan,ranking:mine.rank})}window.MathClansGame?.setRankings?.(rows);
+ }catch(e){console.warn('Ranking refresh failed',e)}
+}
+async function getWarTargets(){
+ if(!db||!clan)return[];
+ const snap=await db.collection('clans').orderBy('rating','desc').limit(50).get();
+ const rows=snap.docs.map((d,i)=>{const x=d.data()||{};return{id:d.id,name:x.name||'Clan',crest:x.guardian||'🐉',guardian:x.guardian||'🐉',region:x.region||'—',rating:Number(x.rating||1500),memberCount:Number(x.memberCount||0),influence:Number(x.influence||0),ranking:i+1}}).filter(x=>x.id!==clan.id&&x.memberCount>0);
+ return rows;
+}
+function challengeId(){return `war-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`}
+function teamToParticipants(team){const out={};for(const m of team||[]){if(!m?.uid)continue;out[m.uid]={uid:m.uid,name:m.name||'Mathling',avatar:m.avatar||'🐲',skills:m.skills||{},status:'deploying',scoreTotal:0,asked:0,correct:0,lastWaveScore:0}}return out}
+async function createWarChallenge(enemy,formation,attackerTeam){
+ if(!user||!clan||!enemy?.id||!attackerTeam?.length)throw new Error('Missing war challenge data');
+ const id=challengeId(),expiresAt=Date.now()+60000;
+ const data={id,status:'awaiting_defender',createdAt:firebase.database.ServerValue.TIMESTAMP,expiresAt,attacker:{clanId:clan.id,clanName:clan.name,guardian:clan.guardian||'🐉',region:clan.region,rating:Number(clan.rating||1500),formation,callerUid:user.uid,participants:teamToParticipants(attackerTeam)},defender:{clanId:enemy.id,clanName:enemy.name,guardian:enemy.guardian||enemy.crest||'🐉',region:enemy.region,rating:Number(enemy.rating||1500)},targetClanId:enemy.id};
+ const updates={};updates[`warChallenges/${id}`]=data;updates[`clanWarInbox/${enemy.id}/${id}`]={challengeId:id,fromClanId:clan.id,fromClanName:clan.name,expiresAt};await rtdb.ref().update(updates);
+ showOutgoingChallenge(id,data);return{id};
+}
+function showOutgoingChallenge(id,seed){
+ const ref=rtdb.ref(`warChallenges/${id}`);let timer=null,done=false;
+ const close=()=>{if(done)return;done=true;if(timer)clearInterval(timer);ref.off('value',handler)};
+ const handler=s=>{const d=s.val()||seed,remain=Math.max(0,Math.ceil((Number(d.expiresAt||0)-Date.now())/1000));if(d.status==='rejected'){close();closeModal();gameToast('The rival clan rejected the challenge.');return}if(d.status==='deploying'||d.status==='active'){close();closeModal();gameToast('⚔ Challenge accepted. Troops are deploying.');return}if(remain<=0){close();rtdb.ref(`warChallenges/${id}`).update({status:'expired'}).catch(()=>{});closeModal();gameToast('War challenge expired.');return}showModal(`<span class="eyebrow">V1.8 WAR LOBBY</span><h3>Challenge sent to ${esc(d.defender?.clanName||'rival clan')}</h3><p>Waiting for the defending clan to answer. This challenge expires in <b>${remain}s</b>.</p><div class="war-lobby-status"><div class="war-lobby-side"><span class="crest">${d.attacker?.guardian||'🐉'}</span><div><strong>${esc(d.attacker?.clanName||'Your clan')}</strong><small>${Object.keys(d.attacker?.participants||{}).length} rallied</small></div><b>READY</b></div><div class="war-lobby-side"><span class="crest">${d.defender?.guardian||'🐉'}</span><div><strong>${esc(d.defender?.clanName||'Rival')}</strong><small>Waiting for defender</small></div><b>${remain}s</b></div></div><div class="modal-actions"><button class="secondary" id="cancelChallenge">Withdraw</button></div>`);const b=$('#cancelChallenge');if(b)b.onclick=async()=>{await ref.update({status:'withdrawn'});await rtdb.ref(`clanWarInbox/${d.defender?.clanId}/${id}`).remove();close();closeModal()}};
+ ref.on('value',handler);timer=setInterval(async()=>{const s=await ref.once('value');handler(s)},1000);
+}
+function watchIncomingChallenges(){
+ if(challengeUnsub){challengeUnsub();challengeUnsub=null}if(!rtdb||!clan)return;const ref=rtdb.ref(`clanWarInbox/${clan.id}`);
+ const handler=async s=>{const all=s.val()||{},now=Date.now();const entries=Object.entries(all).filter(([,v])=>v&&Number(v.expiresAt||0)>now);if(!entries.length)return;const [id]=entries[0];if(activeChallengeId===id)return;const snap=await rtdb.ref(`warChallenges/${id}`).once('value'),d=snap.val();if(!d||d.status!=='awaiting_defender')return;activeChallengeId=id;showIncomingChallenge(id,d)};
+ ref.on('value',handler);challengeUnsub=()=>ref.off('value',handler);
+}
+function showIncomingChallenge(id,d){
+ const remain=Math.max(0,Math.ceil((Number(d.expiresAt||0)-Date.now())/1000));if(remain<=0){activeChallengeId=null;return}
+ showModal(`<span class="eyebrow">⚔ INCOMING CLAN CHALLENGE</span><h3>${esc(d.attacker?.clanName||'A rival clan')} challenges ${esc(clan.name)}</h3><p>${Object.keys(d.attacker?.participants||{}).length} attacking member${Object.keys(d.attacker?.participants||{}).length===1?'':'s'} are rallied. Accepting starts a 20-second voluntary defence rally for your online clan members.</p><div class="war-lobby-status"><div class="war-lobby-side"><span class="crest">${d.attacker?.guardian||'⚔'}</span><div><strong>${esc(d.attacker?.clanName||'Rival')}</strong><small>Rating ${d.attacker?.rating||1500}</small></div><b>ATTACK</b></div></div><div class="modal-actions"><button class="secondary" id="rejectWarChallenge">Reject</button><button class="primary" id="defendWarChallenge">Defend & Rally</button></div>`);
+ $('#rejectWarChallenge').onclick=async()=>{await rtdb.ref(`warChallenges/${id}`).update({status:'rejected',rejectedBy:user.uid});await rtdb.ref(`clanWarInbox/${clan.id}/${id}`).remove();activeChallengeId=null;closeModal()};
+ $('#defendWarChallenge').onclick=async()=>{const roster=(window.MathClansGame?.localMembers||[]).map((m,idx)=>({idx,...m})).filter(m=>m.uid&&m.status!=='offline'&&m.status!=='deployed').slice(0,10);if(!roster.length){gameToast('No online defenders are available.');return}closeModal();startRally(roster,id,async result=>{const defenders=result?.entries||[];if(!defenders.length){await rtdb.ref(`warChallenges/${id}`).update({status:'rejected',reason:'no_defenders'});activeChallengeId=null;return}await activateChallenge(id,d,defenders);activeChallengeId=null})};
+}
+async function activateChallenge(id,d,defenderTeam){
+ const attacker=d.attacker||{},defender={clanId:clan.id,clanName:clan.name,guardian:clan.guardian||'🐉',region:clan.region,rating:Number(clan.rating||1500),formation:'balanced',callerUid:user.uid,participants:teamToParticipants(defenderTeam)};
+ const allParticipants={...(attacker.participants||{}),...(defender.participants||{})},battleStartsAt=Date.now()+6000,endsAt=battleStartsAt+90000;
+ const session={id,status:'deploying',challengeId:id,ownerUid:attacker.callerUid,participants:allParticipants,sides:{attacker,defender},battleStartsAt,startedAt:battleStartsAt,endsAt};
+ const updates={};updates[`activeBattles/${id}`]=session;updates[`warChallenges/${id}/status`]='deploying';updates[`warChallenges/${id}/sessionId`]=id;updates[`clanWarInbox/${clan.id}/${id}`]=null;await rtdb.ref().update(updates);
+ setTimeout(()=>rtdb.ref(`activeBattles/${id}`).update({status:'active'}).catch(()=>{}),6000);
+}
+function showDeployment(sessionId,data){
+ const start=Number(data.battleStartsAt||Date.now());window.MathClansOnline?.setActivity?.('battle');
+ const draw=()=>{const remain=Math.max(0,Math.ceil((start-Date.now())/1000));showModal(`<span class="eyebrow">V1.8 TROOP DEPLOYMENT</span><h3>Marching to battle</h3><div class="deployment-countdown">${remain}</div><p class="deployment-note">Both clans are locked into this war session. Battle begins automatically when the deployment countdown reaches zero.</p>`);if(remain<=0){clearInterval(t);rtdb.ref(`activeBattles/${sessionId}`).update({status:'active'}).catch(()=>{});closeModal();window.MathClansGame?.joinSharedBattle?.(sessionId,{...data,status:'active'})}};
+ draw();const t=setInterval(draw,1000);
+}
+
 function openSettings(){if(!clan||state.player.clanRole!=='leader'){gameToast('Only the clan leader can edit clan settings.');return}showModal(`<span class="eyebrow">ONLINE CLAN SETTINGS</span><h3>Edit ${esc(clan.name)}</h3><label>Clan name</label><input id="cloudClanName" maxlength="28" value="${esc(clan.name)}"><label>Region</label><select id="cloudClanRegion">${regions.map(x=>`<option ${x===clan.region?'selected':''}>${x}</option>`).join('')}</select><div class="modal-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" id="saveCloudClan">Save</button></div>`);$('#saveCloudClan').onclick=async()=>{const name=$('#cloudClanName').value.trim();if(name.length<3)return;await db.collection('clans').doc(clan.id).update({name,nameLower:name.toLowerCase(),region:$('#cloudClanRegion').value});clan.name=name;clan.region=$('#cloudClanRegion').value;window.MathClansGame?.setClan?.(clan);closeModal();updatePanel()}}
 function initFirebase(){if(!window.MathClansOnline?.configured){updatePanel();return}auth=firebase.auth();db=firebase.firestore();rtdb=firebase.database();auth.onAuthStateChanged(async u=>{user=u||null;if(!user){stopWatchers();clan=null;updatePanel();return}const ps=await db.collection('players').doc(user.uid).get();const pd=ps.data()||{};if(pd.clanId){state.player.clanId=pd.clanId;state.player.clanRole=pd.clanRole||'member';save();await loadClan(pd.clanId)}else{clan=null;state.player.clanId=null;state.player.clanRole=null;save();updatePanel()}})}
-window.MathClansClans={isOnlineMode:onlineMode,isLiveClan:liveClan,openSettings,openBrowse,startRally,createBattleSession,reportBattleScore,finishBattleForPlayer};
+window.MathClansClans={isOnlineMode:onlineMode,isLiveClan:liveClan,openSettings,openBrowse,startRally,createBattleSession,reportBattleScore,finishBattleForPlayer,getWarTargets,createWarChallenge,refreshClanRanking};
 setTimeout(initFirebase,0);
 })();

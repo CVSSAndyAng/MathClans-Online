@@ -2,11 +2,15 @@
   "rules": {
     "presence": {
       ".read": "auth != null",
-      "$uid": { ".write": "auth != null && auth.uid === $uid" }
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
     },
     "warReady": {
       ".read": "auth != null",
-      "$uid": { ".write": "auth != null && auth.uid === $uid" }
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
     },
     "warRallies": {
       ".read": "auth != null",
@@ -17,6 +21,14 @@
       ".write": "auth != null"
     },
     "activeBattles": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "warChallenges": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "clanWarInbox": {
       ".read": "auth != null",
       ".write": "auth != null"
     }
