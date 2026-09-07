@@ -188,3 +188,6 @@ body[data-screen="train"] #screen-train .confidence-row{margin-top:5px}.difficul
 .modal{max-height:calc(100dvh - 36px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .modal-actions{position:sticky;bottom:-22px;z-index:2;padding:14px 0 4px;background:linear-gradient(180deg,transparent 0,#241b15 34%,#241b15 100%)}
 @media(max-height:760px){.modal{padding:18px}.modal h3{font-size:25px}.onboarding-step{padding:10px}.modal-actions{bottom:-18px}}
+
+/* V1.7.2 profile picker */
+.avatar-picker{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:10px;margin:10px 0 18px}.avatar-choice{font-size:28px;min-height:54px;border:1px solid rgba(214,169,74,.45);background:rgba(30,20,13,.75);border-radius:12px;cursor:pointer}.avatar-choice.selected{outline:2px solid #e3b552;background:rgba(137,92,32,.32)}@media(max-width:600px){.avatar-picker{grid-template-columns:repeat(4,1fr)}}

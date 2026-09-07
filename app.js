@@ -55,6 +55,7 @@ const SUBSKILLS={
 let selectedMembers=new Set();
 let pendingWarSelection=[];
 let activeSkill=null,currentQuestion=null,battle=null,pendingEnemy=null,selectedFormation='balanced';
+let pendingSharedRoster=null;
 window.MathClansGame={
   setMembers(list){
     // Preserve a player's current war selection across live Firebase roster/presence refreshes.
@@ -74,6 +75,7 @@ window.MathClansGame={
   refresh(){init();},
   toast(msg){toast(msg)},
   markBattleParticipantLeft(uid){if(!battle||battle.ended||!uid)return;battle.forfeitUids=battle.forfeitUids||new Set();battle.forfeitUids.add(uid);effect(`⚠ ${members.find(m=>m.uid===uid)?.name||'Player'} disconnected · 0 points`);updateBattleUi();},
+  joinSharedBattle(sessionId,data){joinSharedBattle(sessionId,data)},
   localMembers:members
 };
 
@@ -81,7 +83,7 @@ window.MathClansGame={
 
 // ===== V1.7.1 first-login guide / reusable How to Play =====
 function showHowToPlay(firstTime=false){
- showModal(`<span class="eyebrow">${firstTime?'WELCOME TO MATHCLANS':'HOW TO PLAY'}</span><h3>${firstTime?'Your first mission':'Battle for Lion City'}</h3><p>Train Maths abilities, join a clan, rally willing members and win Clan Clashes through accurate mental Maths.</p><div class="onboarding-steps"><div class="onboarding-step"><span>📚</span><div><strong>1. Train your four abilities</strong><small>Algebra = Attack, Geometry = Defence, Trigonometry = Precision, Statistics = Tactics. Questions become harder as your ability rises and recent repeats are avoided.</small></div></div><div class="onboarding-step"><span>🧠</span><div><strong>2. Read the working carefully</strong><small>Every MCQ has four worked solutions. Wrong solutions imitate common student errors, so judge the mathematics rather than the length of the working.</small></div></div><div class="onboarding-step"><span>🏰</span><div><strong>3. Join or create a clan</strong><small>Clans hold up to 30 members. Online, War Ready and Deployed statuses are live.</small></div></div><div class="onboarding-step"><span>⚔</span><div><strong>4. Rally for War</strong><small>Leaders/officers may invite 1–10 members. Invitees have up to 20 seconds to Accept or Reject. The rally closes early when everyone responds.</small></div></div><div class="onboarding-step"><span>➕</span><div><strong>5. Win with mental Maths</strong><small>Battle is driven mainly by rapid-sum accuracy and speed. Long-term abilities and formation give smaller RPG bonuses. Leaving after battle begins counts as 0 for that player and still affects the team average.</small></div></div></div><div class="modal-actions"><button class="primary" id="howToPlayClose">${firstTime?'Enter Lion City':'Close'}</button></div>`);
+ showModal(`<span class="eyebrow">${firstTime?'WELCOME TO MATHCLANS':'HOW TO PLAY'}</span><h3>${firstTime?'Your first mission':'Battle for Lion City'}</h3><p>Train Maths abilities, join a clan, rally willing members and win Clan Clashes through accurate mental Maths.</p><div class="onboarding-steps"><div class="onboarding-step"><span>📚</span><div><strong>1. Train your four abilities</strong><small>Algebra = Attack, Geometry = Defence, Trigonometry = Precision, Statistics = Tactics. Questions become harder as your ability rises and recent repeats are avoided.</small></div></div><div class="onboarding-step"><span>🧠</span><div><strong>2. Read the working carefully</strong><small>Every MCQ has four worked solutions. Wrong solutions imitate common student errors, so judge the mathematics rather than the length of the working.</small></div></div><div class="onboarding-step"><span>🏰</span><div><strong>3. Join or create a clan</strong><small>Clans hold up to 30 members. Online, War Ready and Deployed statuses are live.</small></div></div><div class="onboarding-step"><span>⚔</span><div><strong>4. Rally for War</strong><small>Any clan member may call a rally for 1–10 members. Invitees have up to 20 seconds to Accept or Reject. The rally closes early when everyone responds.</small></div></div><div class="onboarding-step"><span>➕</span><div><strong>5. Win with mental Maths</strong><small>Battle is driven mainly by rapid-sum accuracy and speed. Long-term abilities and formation give smaller RPG bonuses. Leaving after battle begins counts as 0 for that player and still affects the team average.</small></div></div></div><div class="modal-actions"><button class="primary" id="howToPlayClose">${firstTime?'Enter Lion City':'Close'}</button></div>`);
  setTimeout(()=>{const b=$('#howToPlayClose');if(b)b.onclick=closeModal},0);
 }
 const helpBtn=$('#helpBtn');if(helpBtn)helpBtn.onclick=()=>showHowToPlay(false);
@@ -417,11 +419,14 @@ function openWarCouncil(i){
  $('#confirmMarch').onclick=()=>{
    const rallySelection=selectedEntries.map(({idx,member})=>({idx,...member}));
    if(window.MathClansClans?.startRally && window.MathClansClans?.isLiveClan?.()){
-     window.MathClansClans.startRally(rallySelection,i,(acceptedIdx)=>{
+     window.MathClansClans.startRally(rallySelection,i,(acceptedResult)=>{
+       const acceptedIdx=Array.isArray(acceptedResult)?acceptedResult:(acceptedResult?.indices||[]);
+       const acceptedEntriesFromRally=Array.isArray(acceptedResult)?null:(acceptedResult?.entries||null);
        if(!acceptedIdx.length){closeModal();goScreen('clan');toast('No members accepted the rally.');return}
        // Remap accepted members by UID in case a realtime roster refresh changed array indexes.
        const acceptedEntries=selectedEntries.filter(x=>acceptedIdx.includes(x.idx));
        const remapped=acceptedEntries.map(x=>x.member.uid?members.findIndex(m=>m.uid===x.member.uid):x.idx).filter(idx=>idx>=0);
+       pendingSharedRoster=acceptedEntriesFromRally;
        pendingWarSelection=[];
        if(!remapped.length){closeModal();goScreen('clan');toast('The accepted roster changed. Please rally again.');return}
        selectedMembers=new Set(remapped);closeModal();marchToRival(i);
@@ -442,10 +447,40 @@ function marchToRival(i){
  function frame(now){const t=Math.min(1,(now-start)/duration),ease=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,pt=path.getPointAtLength(total*ease),pt2=path.getPointAtLength(Math.min(total,total*ease+3)),ang=Math.atan2(pt2.y-pt.y,pt2.x-pt.x)*180/Math.PI;army.setAttribute('transform',`translate(${pt.x} ${pt.y}) rotate(${ang})`);const sec=Math.max(0,Math.ceil((duration-(now-start))/1000));if(sec!==lastSec){lastSec=sec;$('#marchEta').textContent=sec}if(t<1)requestAnimationFrame(frame);else{setTimeout(()=>{army.classList.add('hidden');hud.classList.add('hidden');marching=false;startBattle(enemy)},500)}}
  requestAnimationFrame(frame);
 }
-function startBattle(enemy){
- const selectedIdx=[...selectedMembers];selectedIdx.forEach(i=>members[i].status='deployed');renderMembers();renderPresence();
- const team=selectedIdx.map(i=>members[i]);const n=team.length;const avg=k=>Math.round(team.reduce((a,m)=>a+m.skills[k],0)/n);battle={enemy,team,selectedIdx,formation:selectedFormation,maxHp:10000,ourHp:10000,enemyHp:10000,seconds:90,asked:0,correct:0,combo:0,started:Date.now(),question:null,lastQAt:Date.now(),teamPowerSamples:[],forfeitUids:new Set(),skills:Object.fromEntries(Object.keys(SKILLS).map(k=>[k,avg(k)]))};
- setMusicMode('battle');$('#battleOurClan').textContent=state.clan.name;$('#battleEnemyClan').textContent=enemy.name;$('#ourFormation').innerHTML=team.map(m=>`<span class="unit">${m.avatar}</span>`).join('');$('#enemyFormation').innerHTML=team.map((_,i)=>`<span class="unit">${['🐙','🐺','🦇','🐗','🦂','🦅','🐯','🦈','🐍','🦁'][i]}</span>`).join('');$('#battleTeamSize').textContent=`${n}v${n}`;const bf=$('#battleFormation');if(bf)bf.textContent=`${FORMATIONS[selectedFormation].icon} ${FORMATIONS[selectedFormation].name}`;$('#battleSkillRunes').innerHTML=Object.entries(SKILLS).map(([k,s])=>`<div class="rune">${s.icon} ${s.name}<b>${battle.skills[k]}</b></div>`).join('');goScreen('battle');nextMental();updateBattleUi();$('#mentalAnswer').value='';$('#mentalAnswer').focus();battle.timer=setInterval(tickBattle,1000);
+async function startBattle(enemy){
+ const selectedIdx=[...selectedMembers];
+ if(!selectedIdx.length){toast('No accepted players are available for battle.');goScreen('clan');return}
+ selectedIdx.forEach(i=>{if(members[i])members[i].status='deployed'});renderMembers();renderPresence();
+ const team=selectedIdx.map(i=>members[i]).filter(Boolean);
+ if(window.MathClansClans?.createBattleSession && window.MathClansClans?.isLiveClan?.()){
+   try{
+     const session=await window.MathClansClans.createBattleSession(enemy,selectedFormation,team);
+     if(session?.id){pendingSharedRoster=null;return joinSharedBattle(session.id,session)}
+   }catch(e){console.warn('Shared battle session failed; using local battle',e)}
+ }
+ beginBattleLocal(enemy,team,selectedIdx,null,null);
+}
+function joinSharedBattle(sessionId,data){
+ if(!data||data.status==='ended')return;
+ if(battle?.sessionId===sessionId&&!battle.ended){battle.sharedParticipants=data.participants||battle.sharedParticipants;return;}
+ const participantObj=data.participants||{};
+ const uids=Object.keys(participantObj);
+ const team=uids.map(uid=>{
+   const local=members.find(m=>m.uid===uid);
+   const remote=participantObj[uid]||{};
+   return local||{uid,name:remote.name||'Mathling',avatar:remote.avatar||'🐲',status:'deployed',role:'algebra',skills:remote.skills||{algebra:1,geometry:1,trigonometry:1,statistics:1}};
+ });
+ if(!team.length)return;
+ const enemy=data.enemy||rivals[Number(data.enemyIndex)||0]||rivals[0];
+ const selectedIdx=team.map(m=>members.findIndex(x=>x.uid&&m.uid&&x.uid===m.uid)).filter(i=>i>=0);
+ selectedIdx.forEach(i=>members[i].status='deployed');renderMembers();renderPresence();
+ beginBattleLocal(enemy,team,selectedIdx,sessionId,data);
+}
+function beginBattleLocal(enemy,team,selectedIdx,sessionId,sessionData){
+ const n=team.length;const avg=k=>Math.round(team.reduce((a,m)=>a+Number(m.skills?.[k]||1),0)/Math.max(1,n));
+ battle={enemy,team,selectedIdx,formation:sessionData?.formation||selectedFormation,maxHp:10000,ourHp:10000,enemyHp:10000,seconds:Math.max(1,Math.ceil(((sessionData?.endsAt||Date.now()+90000)-Date.now())/1000)),asked:0,correct:0,combo:0,started:sessionData?.startedAt||Date.now(),question:null,lastQAt:Date.now(),teamPowerSamples:[],forfeitUids:new Set(),skills:Object.fromEntries(Object.keys(SKILLS).map(k=>[k,avg(k)])),sessionId:sessionId||null,sharedParticipants:sessionData?.participants||null};
+ setMusicMode('battle');window.MathClansOnline?.setActivity?.('battle');
+ $('#battleOurClan').textContent=state.clan.name;$('#battleEnemyClan').textContent=enemy.name;$('#ourFormation').innerHTML=team.map(m=>`<span class="unit">${m.avatar}</span>`).join('');$('#enemyFormation').innerHTML=team.map((_,i)=>`<span class="unit">${['🐙','🐺','🦇','🐗','🦂','🦅','🐯','🦈','🐍','🦁'][i]}</span>`).join('');$('#battleTeamSize').textContent=`${n}v${n}`;const bf=$('#battleFormation');if(bf)bf.textContent=`${FORMATIONS[battle.formation]?.icon||'⚖'} ${FORMATIONS[battle.formation]?.name||'Balanced'}`;$('#battleSkillRunes').innerHTML=Object.entries(SKILLS).map(([k,s])=>`<div class="rune">${s.icon} ${s.name}<b>${battle.skills[k]}</b></div>`).join('');goScreen('battle');nextMental();updateBattleUi();$('#mentalAnswer').value='';$('#mentalAnswer').focus();battle.timer=setInterval(tickBattle,1000);
 }
 function mentalQ(){let a=rnd(8,90),b=rnd(2,35),op=['+','−','×'][rnd(0,2)],ans;if(op==='+')ans=a+b;else if(op==='−'){if(b>a)[a,b]=[b,a];ans=a-b}else{a=rnd(2,15);b=rnd(2,12);ans=a*b}return{text:`${a} ${op} ${b}`,ans}}
 function nextMental(){if(!battle)return;battle.question=mentalQ();battle.lastQAt=Date.now();$('#mentalQuestion').textContent=battle.question.text;const a=$('#mentalAnswer');a.value='';setTimeout(()=>{try{a.focus({preventScroll:true})}catch(e){a.focus()}},30)}
@@ -461,7 +496,14 @@ function submitMental(){
  const elapsed=(Date.now()-battle.lastQAt)/1000;battle.asked++;
  const playerCorrect=val===battle.question.ans;let playerScore=0;
  if(playerCorrect){battle.correct++;battle.combo++;playerScore=Math.round(100+Math.max(0,40-(elapsed-1.5)*10));playSfx('correct')}else{battle.combo=0;playSfx('wrong')}
- const mateScores=battle.team.slice(1).map(teammateWaveScore);const teamScores=[playerScore,...mateScores];const teamAvg=teamScores.reduce((a,b)=>a+b,0)/teamScores.length;
+ let teamScores;
+ if(battle.sessionId){
+   const me=window.MathClansOnline?.user?.();
+   window.MathClansClans?.reportBattleScore?.(battle.sessionId,playerScore,playerCorrect,elapsed).catch?.(()=>{});
+   const shared=battle.sharedParticipants||{};
+   teamScores=battle.team.map(m=>m.uid===me?.uid?playerScore:Number(shared[m.uid]?.lastWaveScore||0));
+ }else teamScores=[playerScore,...battle.team.slice(1).map(teammateWaveScore)];
+ const teamAvg=teamScores.reduce((a,b)=>a+b,0)/Math.max(1,teamScores.length);
  battle.teamPowerSamples.push(teamAvg);if(battle.teamPowerSamples.length>30)battle.teamPowerSamples.shift();
  const troopBonus=1+Math.min(.05,(battle.team.length-1)*.005);
  const fm=FORMATIONS[battle.formation]?.mods||FORMATIONS.balanced.mods;
@@ -476,6 +518,6 @@ function submitMental(){
 function tickBattle(){if(!battle||battle.ended)return;battle.seconds--;$('#battleTimer').textContent=battle.seconds;if(battle.seconds<=0)endBattle();else if(Math.random()<.22){const dmg=Math.round(180*(1-battle.skills.geometry/1500));battle.ourHp=Math.max(0,battle.ourHp-dmg);updateBattleUi();if(battle.ourHp<=0)endBattle()}}
 function updateBattleUi(){if(!battle)return;$('#ourHpBar').style.width=(battle.ourHp/battle.maxHp*100)+'%';$('#enemyHpBar').style.width=(battle.enemyHp/battle.maxHp*100)+'%';$('#ourHpText').textContent=`${battle.ourHp} HP`;$('#enemyHpText').textContent=`${battle.enemyHp} HP`;$('#battleAccuracy').textContent=(battle.asked?Math.round(battle.correct/battle.asked*100):100)+'%';$('#battleCombo').textContent=battle.combo;const a=battle.teamPowerSamples?.length?Math.round(battle.teamPowerSamples.reduce((x,y)=>x+y,0)/battle.teamPowerSamples.length):0;$('#battleTeamAvg').textContent=a}
 function effect(t){$('#battleEffects').innerHTML=`<div class="effect-text">${t}</div>`}
-function endBattle(){if(!battle||battle.ended)return;battle.ended=true;clearInterval(battle.timer);(battle.selectedIdx||[]).forEach(i=>members[i].status='ready');selectedMembers.clear();renderMembers();renderPresence();const win=battle.enemyHp<battle.ourHp;const delta=win?rnd(18,28):-rnd(12,20);state.clan.rating=Math.max(1000,state.clan.rating+delta);if(win){state.player.crystals+=80;state.clan.influence=Math.min(100,state.clan.influence+2)}save();renderRanking();$('#clanRating').textContent=state.clan.rating;effect(win?'🏆 VICTORY!':'💥 DEFEAT');playSfx(win?'victory':'defeat');setMusicMode('ambient');showModal(`<span class="eyebrow">CLAN CLASH RESULT</span><h3>${win?'🏆 Victory':'🛡 Defeat'}</h3><p>${state.clan.name} vs ${battle.enemy.name} · ${FORMATIONS[battle.formation]?.icon||'⚖'} ${FORMATIONS[battle.formation]?.name||'Balanced'} Formation</p><div class="clan-stats"><div><span>Accuracy</span><b>${battle.asked?Math.round(battle.correct/battle.asked*100):0}%</b></div><div><span>Rating</span><b>${delta>0?'+':''}${delta}</b></div><div><span>Crystals</span><b>${win?'+80':'0'}</b></div></div><p>Your Algebra, Geometry, Trigonometry and Statistics mastery did <b>not</b> decrease. Only clan rating changes after a loss.</p><div class="modal-actions"><button class="primary" id="returnMap">Return to Map</button></div>`);$('#returnMap').onclick=()=>{closeModal();battle=null;goScreen('map');init()}}
+function endBattle(){if(!battle||battle.ended)return;battle.ended=true;clearInterval(battle.timer);window.MathClansOnline?.setActivity?.('online');if(battle.sessionId)window.MathClansClans?.finishBattleForPlayer?.(battle.sessionId).catch?.(()=>{});(battle.selectedIdx||[]).forEach(i=>members[i].status='ready');selectedMembers.clear();renderMembers();renderPresence();const win=battle.enemyHp<battle.ourHp;const delta=win?rnd(18,28):-rnd(12,20);state.clan.rating=Math.max(1000,state.clan.rating+delta);if(win){state.player.crystals+=80;state.clan.influence=Math.min(100,state.clan.influence+2)}save();renderRanking();$('#clanRating').textContent=state.clan.rating;effect(win?'🏆 VICTORY!':'💥 DEFEAT');playSfx(win?'victory':'defeat');setMusicMode('ambient');showModal(`<span class="eyebrow">CLAN CLASH RESULT</span><h3>${win?'🏆 Victory':'🛡 Defeat'}</h3><p>${state.clan.name} vs ${battle.enemy.name} · ${FORMATIONS[battle.formation]?.icon||'⚖'} ${FORMATIONS[battle.formation]?.name||'Balanced'} Formation</p><div class="clan-stats"><div><span>Accuracy</span><b>${battle.asked?Math.round(battle.correct/battle.asked*100):0}%</b></div><div><span>Rating</span><b>${delta>0?'+':''}${delta}</b></div><div><span>Crystals</span><b>${win?'+80':'0'}</b></div></div><p>Your Algebra, Geometry, Trigonometry and Statistics mastery did <b>not</b> decrease. Only clan rating changes after a loss.</p><div class="modal-actions"><button class="primary" id="returnMap">Return to Map</button></div>`);$('#returnMap').onclick=()=>{closeModal();battle=null;goScreen('map');init()}}
 
 init();

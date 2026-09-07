@@ -1,8 +1,13 @@
-# MathClans V1.7.1 — Rally + Training Quality Patch
+# MathClans V1.7.1e
+
+MCQ distractor quality upgrade: all four choices use comparable worked mathematical steps, with wrong options based on plausible student misconceptions rather than generic filler text.
+
+Upload `app.js` and `index.html` to GitHub over V1.7.1d.
+# MathClans V1.7.1b — Rally + Training Quality Patch
 
 This patch builds on V1.7 and adds the gameplay fixes requested during testing.
 
-## Included in V1.7.1
+## Included in V1.7.1b
 - Fixes clan members appearing OFFLINE by allowing authenticated roster reads of Realtime Database presence and War Ready state.
 - Presence heartbeat shortened to 10 seconds and visibility changes update presence immediately.
 - Worked MCQ choices are visually balanced so the correct answer is not simply the choice with the most steps.
@@ -22,5 +27,14 @@ Keep the `assets/` folder.
 ## Firebase rule change required
 Publish the included `database.rules.json` in Firebase Realtime Database Rules. Firestore rules are unchanged from V1.7.
 
-## Important V1.7.1 limitation
+## Important V1.7.1b limitation
 Clan membership, presence and rally invitations are real Firebase data. The actual opponent battle simulation is still the V1.7 client-side battle model; fully synchronized multi-device live battles remain a later milestone.
+
+
+## V1.7.2 test fixes
+- Players choose a public display name and avatar; Google email remains private.
+- Any clan member can call a Rally for War.
+- Leaving a clan immediately removes the player from the roster.
+- A leader may leave; leadership transfers to the longest-serving remaining member.
+- Shared active-battle sessions notify every accepted participant and open the battle screen on each device.
+- Accepted participants publish deployed/battle presence instead of reverting to online.
