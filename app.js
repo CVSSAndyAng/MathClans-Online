@@ -324,17 +324,20 @@ const difficultyXP=t=>[0,6,8,11,14,18][t]||18;
 function chooseTier(skill){const base=skillTier(skill),r=Math.random();if(r<.25)return Math.max(1,base-1);if(r>.85)return Math.min(5,base+1);return base}
 function workedLines(html,subskill,index){
  const raw=String(html||'');
- const lines=raw.split('<br>').filter(Boolean);
- if(lines.length>=3)return raw;
- const openers={
-  algebra:['Rearrange or simplify the expression shown.','Apply the operation to the terms involved.','Continue using the chosen algebraic rule.'],
-  geometry:['Identify the required formula or relationship.','Substitute the given measurements consistently.','Continue from the chosen geometric relationship.'],
-  trigonometry:['Identify the sides/angles relative to the question.','Choose the trig relationship used here.','Substitute into the selected relationship.'],
-  statistics:['Identify the required statistic or probability.','Use the relevant values from the data.','Continue with the selected calculation.']
- };
- const skillKey=activeSkill||'algebra',lead=(openers[skillKey]||openers.algebra)[index%3];
- if(lines.length===2)return `<span class="step-note">${lead}</span><br>${raw}`;
- return `<span class="step-note">${lead}</span><br>${raw}<br><span class="step-note">Therefore use the result obtained above.</span>`;
+ let lines=raw.split('<br>').filter(Boolean);
+ // V1.7.1d: every option uses the same visual structure so students cannot
+ // spot the correct answer by length, prose style or number of displayed steps.
+ const intro='<span class="step-note">Check each line of the working.</span>';
+ if(lines.length===1){
+   // Keep the actual misconception/calculation visible, but give the option
+   // the same three-part rhythm as a full worked solution.
+   lines=[lines[0],'<span class="step-note">Continue using this method.</span>','<span class="step-note">Hence this is the proposed result.</span>'];
+ }else if(lines.length===2){
+   lines=[lines[0],lines[1],'<span class="step-note">Hence this is the proposed result.</span>'];
+ }else if(lines.length>3){
+   lines=[lines[0],lines.slice(1,-1).join(' &nbsp; '),lines[lines.length-1]];
+ }
+ return `${intro}<br>${lines.slice(0,3).join('<br>')}`;
 }
 function adaptiveQ(topic,problem,correct,wrong,explanation,structureKey,valueKey,subskill,tier){
  const all=[{html:workedLines(correct,subskill,0),correct:true,misconception:null},...wrong.slice(0,3).map((x,i)=>({html:workedLines(x,subskill,i+1),correct:false,misconception:['sign / inverse-operation error','formula or substitution error','incomplete / invalid simplification'][i]}))];
@@ -368,7 +371,15 @@ function makeGeometryV(tier,forced){const sub=forced||pickSubskill('geometry');
  if(sub==='Straight-line equation'){const m=rnd(-5,6)||2,c=rnd(-9,9);if(tier<=2)return adaptiveQ(sub,`Gradient = ${m}, y-intercept = ${c}.`, `y = mx + c<br>y = ${m}x ${signed(c)}`,[`y = ${c}x ${signed(m)}`,`x = ${m}y ${signed(c)}`,`y = ${m+c}x`],'Use y = mx + c.','GEO-LINE-MC',`GEO-LM-${m}-${c}`,sub,tier);const x=rnd(-5,5),y=m*x+c;return adaptiveQ(sub,`Line has gradient ${m} and passes through (${x}, ${y}).`,`y − ${y} = ${m}(x − ${x})<br>y = ${m}x ${signed(c)}`,[`y = ${x}x ${signed(y)}`,`y − ${x} = ${m}(x − ${y})`,`y = ${m}x ${signed(y)}`],'Use point-slope form or substitute the point into y = mx + c.','GEO-LINE-POINT',`GEO-LP-${m}-${x}-${y}`,sub,tier)}
  if(sub==='Distance between points'){const dx=rnd(2,12),dy=rnd(2,12),sq=dx*dx+dy*dy;return adaptiveQ(sub,`Horizontal change = ${dx}, vertical change = ${dy}. Find the distance.`,`d = √(${dx}² + ${dy}²)<br>= √${sq}${Number.isInteger(Math.sqrt(sq))?`<br>= ${Math.sqrt(sq)}`:''}`,[`d = ${dx}+${dy} = ${dx+dy}`,`d = √(${dx}+${dy})`,`d = √(${Math.abs(dx*dx-dy*dy)})`],'Distance between points uses Pythagoras on horizontal and vertical changes.','GEO-DIST',`GEO-D-${dx}-${dy}`,sub,tier)}
  if(sub==='Area & perimeter'){const shape=['rectangle','triangle','trapezium'][Math.min(2,tier-1+rnd(0,1))];if(shape==='rectangle'){const l=rnd(4,18),w=rnd(3,14);return adaptiveQ(sub,`Rectangle: length ${l} cm, width ${w} cm. Find area.`,`A = l×w<br>= ${l}×${w}<br>= ${l*w} cm²`,[`A = 2(${l}+${w}) = ${2*(l+w)} cm²`,`A = ${l}+${w} = ${l+w} cm²`,`A = ${l}²+${w}²`],'Area uses length × width; perimeter uses 2(l+w).','GEO-AREA-RECT',`GEO-AR-${l}-${w}`,sub,tier)}if(shape==='triangle'){const b=rnd(5,20),h=rnd(4,16);return adaptiveQ(sub,`Triangle: base ${b} cm, perpendicular height ${h} cm.`,`A = ½bh<br>= ½(${b})(${h})<br>= ${b*h/2} cm²`,[`A = bh = ${b*h} cm²`,`A = ½(${b}+${h})`,`A = 2(${b}+${h})`],'Use the perpendicular height in A = ½bh.','GEO-AREA-TRI',`GEO-AT-${b}-${h}`,sub,tier)}const a=rnd(4,13),b=rnd(6,18),h=rnd(3,12);return adaptiveQ(sub,`Trapezium: parallel sides ${a} cm and ${b} cm, height ${h} cm.`,`A = ½(${a}+${b})(${h})<br>= ${(a+b)*h/2} cm²`,[`A = (${a}+${b})${h} = ${(a+b)*h}`,`A = ½(${a}×${b})${h}`,`A = ${a}+${b}+${h}`],'Average the two parallel sides, then multiply by perpendicular height.','GEO-AREA-TRAP',`GEO-AZ-${a}-${b}-${h}`,sub,tier)}
- const solid=tier<=2?'cuboid':(Math.random()<.5?'cylinder':'cuboid');if(solid==='cuboid'){const l=rnd(3,12),w=rnd(2,10),h=rnd(2,11);return adaptiveQ(sub,`Cuboid: ${l} cm × ${w} cm × ${h} cm. Find volume.`,`V = lwh<br>= ${l}×${w}×${h}<br>= ${l*w*h} cm³`,[`V = 2(lw+lh+wh) = ${2*(l*w+l*h+w*h)} cm³`,`V = ${l+w+h} cm³`,`V = ${l*w} cm³`],'Volume is the product of the three perpendicular dimensions.','GEO-VOL-CUB',`GEO-VC-${l}-${w}-${h}`,sub,tier)}const r=rnd(2,8),h=rnd(4,15);return adaptiveQ(sub,`Cylinder: radius ${r} cm, height ${h} cm. Find volume in terms of π.`,`V = πr²h<br>= π(${r})²(${h})<br>= ${r*r*h}π cm³`,[`V = 2πrh = ${2*r*h}π`,`V = πrh = ${r*h}π`,`V = πr² = ${r*r}π`],'Cylinder volume is πr²h; do not use circumference or surface-area formulae.','GEO-VOL-CYL',`GEO-CY-${r}-${h}`,sub,tier)
+ const solid=tier<=2?'cuboid':(Math.random()<.5?'cylinder':'cuboid');if(solid==='cuboid'){const l=rnd(3,12),w=rnd(2,10),h=rnd(2,11);return adaptiveQ(sub,`Cuboid: ${l} cm × ${w} cm × ${h} cm. Find volume.`,`V = lwh<br>= ${l}×${w}×${h}<br>= ${l*w*h} cm³`,[
+`V = 2(lw+lh+wh)<br>= 2(${l*w}+${l*h}+${w*h})<br>= ${2*(l*w+l*h+w*h)} cm³`,
+`V = l+w+h<br>= ${l}+${w}+${h}<br>= ${l+w+h} cm³`,
+`V = lw<br>= ${l}×${w}<br>= ${l*w} cm³`
+],'Volume is the product of the three perpendicular dimensions. The wrong methods show common errors: using the surface-area formula, adding dimensions, or forgetting the height.','GEO-VOL-CUB',`GEO-VC-${l}-${w}-${h}`,sub,tier)}const r=rnd(2,8),h=rnd(4,15);return adaptiveQ(sub,`Cylinder: radius ${r} cm, height ${h} cm. Find volume in terms of π.`,`V = πr²h<br>= π(${r})²(${h})<br>= ${r*r*h}π cm³`,[
+`V = 2πrh<br>= 2π(${r})(${h})<br>= ${2*r*h}π cm³`,
+`V = πrh<br>= π(${r})(${h})<br>= ${r*h}π cm³`,
+`V = πr²<br>= π(${r})²<br>= ${r*r}π cm³`
+],'Cylinder volume is πr²h. The distractors model circumference, forgetting one factor of r, or forgetting the height.','GEO-VOL-CYL',`GEO-CY-${r}-${h}`,sub,tier)
 }
 function makeTrigV(tier,forced){const sub=forced||pickSubskill('trigonometry');
  if(sub==='Trig ratios'){const triples=[[3,4,5],[5,12,13],[8,15,17],[7,24,25]],T=triples[rnd(0,triples.length-1)],o=T[0],a=T[1],h=T[2],fn=['sin','cos','tan'][rnd(0,2)],correct=fn==='sin'?frac(o,h):fn==='cos'?frac(a,h):frac(o,a);return adaptiveQ(sub,`Right triangle relative to θ: opposite ${o}, adjacent ${a}, hypotenuse ${h}. Find ${fn} θ.`,`${fn} θ = ${fn==='sin'?'opposite/hypotenuse':fn==='cos'?'adjacent/hypotenuse':'opposite/adjacent'}<br>= ${correct}`,[`${frac(a,h)}`,`${frac(o,a)}`,`${frac(h,o)}`],'Match the requested ratio to SOH–CAH–TOA.','TRIG-RATIO',`TRIG-R-${fn}-${o}-${a}-${h}`,sub,tier)}
