@@ -1,4 +1,4 @@
-/* MathClans V1.6 Online Foundation
+/* MathClans V1.7 Online Foundation
    - Google/Firebase Authentication
    - persistent player profile in Firestore
    - Realtime Database presence
@@ -48,6 +48,7 @@
       skills: structuredClone(state?.skills || {}),
       training: structuredClone(state?.training || {}),
       clanId: state?.player?.clanId || null,
+      clanRole: state?.player?.clanRole || null,
       updatedAtMs: Date.now(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
@@ -62,7 +63,8 @@
     if (Number.isFinite(data.crystals)) state.player.crystals = data.crystals;
     if (data.skills && typeof data.skills === 'object') state.skills = {...state.skills, ...data.skills};
     if (data.training && typeof data.training === 'object') state.training = {...state.training, ...data.training};
-    if (data.clanId) state.player.clanId = data.clanId;
+    state.player.clanId = data.clanId || null;
+    state.player.clanRole = data.clanRole || null;
     localStorage.setItem('mathclans-v1', JSON.stringify(state));
     if (typeof init === 'function') init();
   }
@@ -129,6 +131,7 @@
         activity: 'online',
         displayName: state?.player?.name || user.displayName || 'Mathling',
         clanId: state?.player?.clanId || null,
+      clanRole: state?.player?.clanRole || null,
         lastChanged: firebase.database.ServerValue.TIMESTAMP
       });
     });
@@ -137,6 +140,9 @@
       if (!user) return;
       presenceRef.update({
         state: document.hidden ? 'away' : 'online',
+        displayName: state?.player?.name || user.displayName || 'Mathling',
+        clanId: state?.player?.clanId || null,
+        activity: document.body?.dataset?.screen==='battle'?'battle':document.body?.dataset?.screen==='train'?'training':'online',
         lastChanged: firebase.database.ServerValue.TIMESTAMP
       }).catch(()=>{});
     }, 30000);
@@ -219,7 +225,7 @@
     auth.onAuthStateChanged(onAuth);
     window.addEventListener('pagehide', () => { if (user) syncProgress(true); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) syncProgress(false); });
-    window.MathClansOnline = {configured:true, sync:syncProgress, user:()=>user, signIn:signInGoogle, signOut};
+    window.MathClansOnline = {configured:true, sync:syncProgress, user:()=>user, signIn:signInGoogle, signOut, db:()=>db, rtdb:()=>rtdb, auth:()=>auth};
     accountLabel('Sign In', 'offline');
   } catch (err) {
     console.error('Firebase init failed:', err);
