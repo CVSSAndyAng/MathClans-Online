@@ -55,7 +55,19 @@ const SUBSKILLS={
 let selectedMembers=new Set();
 let activeSkill=null,currentQuestion=null,battle=null,pendingEnemy=null,selectedFormation='balanced';
 window.MathClansGame={
-  setMembers(list){members.splice(0,members.length,...(list||[]));selectedMembers.clear();renderMembers();renderPresence();renderTeamBars();},
+  setMembers(list){
+    // Preserve a player's current war selection across live Firebase roster/presence refreshes.
+    // V1.7.1 used to clear selectedMembers on every realtime update, which could make
+    // War Council suddenly show 0 troops / NaN stats and leave its buttons ineffective.
+    const selectedKeys=[...selectedMembers].map(i=>{const m=members[i];return m?(m.uid?`uid:${m.uid}`:`fallback:${m.name}|${m.avatar}`):null}).filter(Boolean);
+    members.splice(0,members.length,...(list||[]));
+    selectedMembers.clear();
+    selectedKeys.forEach(key=>{
+      const idx=members.findIndex(m=>key.startsWith('uid:')?`uid:${m.uid}`===key:`fallback:${m.name}|${m.avatar}`===key);
+      if(idx>=0 && STATUS_META[members[idx].status]?.selectable)selectedMembers.add(idx);
+    });
+    renderMembers();renderPresence();renderTeamBars();
+  },
   setClan(clan){if(!clan)return;state.clan={...state.clan,...clan};if(Number.isFinite(clan.memberCount))state.clan.memberCount=clan.memberCount;save();init();},
   setPlayerClan(clanId,role){state.player.clanId=clanId||null;state.player.clanRole=role||null;save();},
   refresh(){init();},
@@ -387,9 +399,27 @@ function openBattlePicker(){
  $('[data-close]').onclick=closeModal;$$('.battle-pick').forEach(el=>el.onclick=()=>{pendingEnemy=+el.dataset.i;openWarCouncil(pendingEnemy)});
 }
 function openWarCouncil(i){
- const enemy=rivals[i],team=[...selectedMembers].map(x=>members[x]),avg=k=>Math.round(team.reduce((a,m)=>a+m.skills[k],0)/team.length);
- showModal(`<span class="eyebrow">WAR COUNCIL · STEP 2</span><h3>${state.clan.guardian} ${state.clan.name} → ${enemy.crest} ${enemy.name}</h3><p>Choose a formation before your ${team.length}-troop army marches to ${enemy.region}. Formation bonuses are deliberately small so live Maths performance remains decisive.</p><div class="war-team-preview">${team.map(m=>`<div><span>${m.avatar}</span><small>${m.name}</small></div>`).join('')}</div><div class="war-stat-grid">${Object.entries(SKILLS).map(([k,s])=>`<div><span>${s.icon} ${s.name}</span><b>${avg(k)}</b></div>`).join('')}</div><div class="formation-picker">${Object.entries(FORMATIONS).map(([k,f])=>`<button type="button" class="formation-card ${selectedFormation===k?'selected':''}" data-formation="${k}"><span>${f.icon}</span><strong>${f.name}</strong><small>${f.desc}</small></button>`).join('')}</div><div class="modal-actions"><button class="secondary" id="warBack">Back</button><button class="primary" id="confirmMarch">Deploy ${team.length} Troop${team.length>1?'s':''}</button></div>`);
- $('#warBack').onclick=openBattlePicker;$$('.formation-card').forEach(b=>b.onclick=()=>{selectedFormation=b.dataset.formation;openWarCouncil(i)});$('#confirmMarch').onclick=()=>{if(window.MathClansClans?.startRally && window.MathClansClans?.isLiveClan?.()){window.MathClansClans.startRally([...selectedMembers].map(idx=>({idx,...members[idx]})),i,(acceptedIdx)=>{if(!acceptedIdx.length){toast('No members accepted the rally.');return}selectedMembers=new Set(acceptedIdx);closeModal();marchToRival(i)});}else{closeModal();marchToRival(i)}};
+ const enemy=rivals[i];
+ const selectedEntries=[...selectedMembers].map(idx=>({idx,member:members[idx]})).filter(x=>x.member);
+ const team=selectedEntries.map(x=>x.member);
+ if(!enemy||team.length<1){closeModal();goScreen('clan');toast('Your selected roster changed. Select 1 available member again.');return}
+ const avg=k=>Math.round(team.reduce((a,m)=>a+(Number(m?.skills?.[k])||0),0)/team.length);
+ showModal(`<span class="eyebrow">WAR COUNCIL · STEP 2</span><h3>${state.clan.guardian} ${state.clan.name} → ${enemy.crest} ${enemy.name}</h3><p>Choose a formation before your ${team.length}-troop army marches to ${enemy.region}. Formation bonuses are deliberately small so live Maths performance remains decisive.</p><div class="war-team-preview">${team.map(m=>`<div><span>${m.avatar}</span><small>${m.name}</small></div>`).join('')}</div><div class="war-stat-grid">${Object.entries(SKILLS).map(([k,s])=>`<div><span>${s.icon} ${s.name}</span><b>${avg(k)}</b></div>`).join('')}</div><div class="formation-picker">${Object.entries(FORMATIONS).map(([k,f])=>`<button type="button" class="formation-card ${selectedFormation===k?'selected':''}" data-formation="${k}"><span>${f.icon}</span><strong>${f.name}</strong><small>${f.desc}</small></button>`).join('')}</div><div class="modal-actions"><button type="button" class="secondary" id="warBack">Back</button><button type="button" class="primary" id="confirmMarch">Deploy ${team.length} Troop${team.length>1?'s':''}</button></div>`);
+ $('#warBack').onclick=()=>{closeModal();if(selectedMembers.size)openBattlePicker();else goScreen('clan')};
+ $$('.formation-card').forEach(b=>b.onclick=()=>{selectedFormation=b.dataset.formation;openWarCouncil(i)});
+ $('#confirmMarch').onclick=()=>{
+   const rallySelection=selectedEntries.map(({idx,member})=>({idx,...member}));
+   if(window.MathClansClans?.startRally && window.MathClansClans?.isLiveClan?.()){
+     window.MathClansClans.startRally(rallySelection,i,(acceptedIdx)=>{
+       if(!acceptedIdx.length){closeModal();goScreen('clan');toast('No members accepted the rally.');return}
+       // Remap accepted members by UID in case a realtime roster refresh changed array indexes.
+       const acceptedEntries=selectedEntries.filter(x=>acceptedIdx.includes(x.idx));
+       const remapped=acceptedEntries.map(x=>x.member.uid?members.findIndex(m=>m.uid===x.member.uid):x.idx).filter(idx=>idx>=0);
+       if(!remapped.length){closeModal();goScreen('clan');toast('The accepted roster changed. Please rally again.');return}
+       selectedMembers=new Set(remapped);closeModal();marchToRival(i);
+     });
+   }else{closeModal();marchToRival(i)}
+ };
 }
 function marchToRival(i){
  if(marching)return;
