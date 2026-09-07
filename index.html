@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>MathClans: Battle for Lion City — V1.7.1bb Rally + Training Quality</title>
   <meta name="theme-color" content="#17130f" />
-  <link rel="stylesheet" href="styles.css?v=1.7.2" />
+  <link rel="stylesheet" href="styles.css?v=1.9.0" />
 </head>
 <body>
   <div id="app">
@@ -126,7 +126,7 @@
         <div class="battle-header fantasy-panel"><div class="battle-clan"><div class="crest">🐉</div><div><b id="battleOurClan">Merlion Scholars</b><span id="ourHpText">10000 HP</span></div></div><div class="timer-orb"><span>CLASH</span><b id="battleTimer">90</b></div><div class="battle-clan enemy"><div><b id="battleEnemyClan">Pi-Rates</b><span id="enemyHpText">10000 HP</span></div><div class="crest">🐙</div></div></div>
         <div class="hp-row"><div class="hp-track"><div id="ourHpBar" class="hp-fill"></div></div><div class="versus">VS</div><div class="hp-track enemy-track"><div id="enemyHpBar" class="hp-fill enemy-fill"></div></div></div>
         <div class="battlefield fantasy-panel"><div class="formation our-team" id="ourFormation"></div><div class="battle-effects" id="battleEffects"><div class="effect-text">⚔ CLAN CLASH ⚔</div></div><div class="formation enemy-team" id="enemyFormation"></div></div>
-        <div class="mental-console fantasy-panel"><div class="mental-meta"><span>MENTAL SUM CHAIN</span><span>Team <b id="battleTeamSize">1v1</b></span><span>Formation <b id="battleFormation">Balanced</b></span><span>Accuracy <b id="battleAccuracy">100%</b></span><span>Team Avg <b id="battleTeamAvg">0</b></span><span>Combo <b id="battleCombo">0</b></span></div><div class="mental-question" id="mentalQuestion">18 + 27</div><form id="mentalForm"><input id="mentalAnswer" inputmode="numeric" enterkeyhint="go" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Answer" aria-label="Mental sum answer" /><button class="primary" id="strikeBtn" type="submit">Strike</button></form><div class="skill-runes" id="battleSkillRunes"></div></div>
+        <div class="mental-console fantasy-panel"><div class="mental-meta"><span>MENTAL SUM CHAIN</span><span>Team <b id="battleTeamSize">1v1</b></span><span>Formation <b id="battleFormation">Balanced</b></span><span>Accuracy <b id="battleAccuracy">100%</b></span><span>My Avg <b id="battleMyAvg">0</b></span><span>Team Avg <b id="battleTeamAvg">0</b></span><span>Opp Avg <b id="battleOpponentAvg">0</b></span><span>Combo <b id="battleCombo">0</b></span></div><div class="mental-question" id="mentalQuestion">18 + 27</div><form id="mentalForm"><input id="mentalAnswer" inputmode="numeric" enterkeyhint="go" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Answer" aria-label="Mental sum answer" /><button class="primary" id="strikeBtn" type="submit">Strike</button></form><div class="skill-runes" id="battleSkillRunes"></div></div>
       </section>
 
       <section id="screen-ranking" class="screen"><div class="section-head"><div><span class="eyebrow">LION CITY LEAGUE</span><h2>Clan Rankings</h2><p>Rating moves up and down after Clan Clashes. Mathematical mastery never drops from losing a battle.</p></div></div><div class="ranking-card fantasy-panel"><div class="rank-head"><span>Rank</span><span>Clan</span><span>Region</span><span>Rating</span></div><div id="rankingList"></div></div></section>
@@ -135,14 +135,14 @@
     <nav class="bottom-nav"><button class="active" data-screen="map"><span>🗺</span>Map</button><button data-screen="train"><span>📚</span>Train</button><button data-screen="clan"><span>🏰</span>Clan</button><button data-screen="hero"><span>🐲</span>Hero</button><button data-screen="battle"><span>⚔</span>Battle</button><button data-screen="ranking"><span>🏆</span>Rank</button></nav>
   </div>
   <div id="modalBackdrop" class="modal-backdrop hidden"><div class="modal fantasy-panel" id="modal"></div></div>
-  <script src="app.js?v=1.8.0"></script>
+  <script src="app.js?v=1.9.0"></script>
   <!-- Firebase compat SDKs: keep these before firebase-config.js and online.js -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=1.6.0"></script>
-  <script src="online.js?v=1.8.0"></script>
-  <script src="clans.js?v=1.8.0"></script>
+  <script src="online.js?v=1.9.0"></script>
+  <script src="clans.js?v=1.9.0"></script>
 </body>
 </html>

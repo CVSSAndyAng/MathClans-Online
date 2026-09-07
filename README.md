@@ -1,24 +1,27 @@
-# MathClans V1.8 — Real War Lobby + Deployment
+# MathClans V1.9 — Live Multiplayer Battles
 
-V1.8 builds on V1.7.2. It adds real clan ranking display, real Firebase clan targets, clan-to-clan challenge inboxes, a defending 20-second voluntary rally, and a synchronized deployment countdown before an active battle session.
+V1.9 upgrades V1.8 into a synchronized cross-clan battle.
 
-## New in V1.8
-- YOUR CLAN map card shows the current real clan rank.
-- Ranking is calculated from Firestore clan ratings.
-- War Council lists real online clans rather than only simulated rivals.
-- Attacking clan rallies 1–10 members first.
-- Target clan receives an incoming challenge.
-- Any member of the target clan can answer the challenge and call the defence rally.
-- Defenders get the same 20-second Accept/Reject rally.
-- Accepted members from both clans are stored in one Firebase active battle session.
-- All accepted players enter a 6-second synchronized deployment/march state.
-- Battle screen opens automatically for accepted participants when deployment ends.
-
-## Important scope
-V1.8 establishes the real war lobby and deployment state. The current battle client still calculates combat locally per side. Fully synchronized cross-clan scoring, shared HP and authoritative result resolution are the V1.9 milestone.
+## New in V1.9
+- shared 90-second clock for both clans
+- each accepted player gets their own rapid mental-sum stream
+- live Firebase participant scores and accuracy
+- team score = average of each deployed player's individual average
+- a disconnect/leave after battle starts makes that player's contribution 0
+- long-term abilities + formation are capped as a smaller secondary modifier
+- synchronized HP and team average on every participant screen
+- one shared final winner and rating delta
+- clan rating/influence update claimed once per clan
+- Firestore battle history record
+- deployed players return to online/ready after the result
 
 ## Upload to GitHub
-Replace index.html, styles.css, app.js, clans.js, database.rules.json and README.md. Keep your configured firebase-config.js. online.js can also be uploaded from this package; it is compatible with V1.8.
+Replace `index.html`, `styles.css`, `app.js`, `online.js`, `clans.js`, `database.rules.json`, `firestore.rules`, and `README.md`. Keep your configured `firebase-config.js` and existing `assets/` folder.
 
-## Firebase
-Publish the new database.rules.json in Realtime Database Rules before testing live clan challenges. Firestore rules remain compatible.
+## Firebase changes
+Publish the supplied `database.rules.json` in Realtime Database > Rules and the supplied `firestore.rules` in Firestore > Rules.
+
+## V1.9 test
+Use two clans on separate accounts/devices. Complete the V1.8 challenge/rally, answer on both sides, verify synchronized timer/HP/team averages, disconnect one deployed participant to verify 0 contribution, then confirm every participant sees the same winner and rating delta. Check `battleHistory/{battleId}` in Firestore afterwards.
+
+V1.9 remains a school beta. V2.0 should move authoritative score/rating validation to trusted server-side code before production deployment.

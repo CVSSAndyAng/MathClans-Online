@@ -31,6 +31,14 @@
     "clanWarInbox": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "battleResultClaims": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "battleHistoryClaims": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }

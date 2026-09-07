@@ -77,8 +77,9 @@ window.MathClansGame={
   setPlayerClan(clanId,role){state.player.clanId=clanId||null;state.player.clanRole=role||null;save();},
   refresh(){init();},
   toast(msg){toast(msg)},
-  markBattleParticipantLeft(uid){if(!battle||battle.ended||!uid)return;battle.forfeitUids=battle.forfeitUids||new Set();battle.forfeitUids.add(uid);effect(`⚠ ${members.find(m=>m.uid===uid)?.name||'Player'} disconnected · 0 points`);updateBattleUi();},
+  markBattleParticipantLeft(uid){if(!battle||battle.ended||!uid)return;battle.forfeitUids=battle.forfeitUids||new Set();battle.forfeitUids.add(uid);if(battle.sessionId)window.MathClansClans?.markSharedParticipantLeft?.(battle.sessionId,uid).catch?.(()=>{});effect(`⚠ ${members.find(m=>m.uid===uid)?.name||'Player'} disconnected · 0 points`);updateBattleUi();},
   joinSharedBattle(sessionId,data){joinSharedBattle(sessionId,data)},
+  syncSharedBattle(sessionId,data){syncSharedBattle(sessionId,data)},
   localMembers:members
 };
 
@@ -464,26 +465,23 @@ async function startBattle(enemy){
  beginBattleLocal(enemy,team,selectedIdx,null,null);
 }
 function joinSharedBattle(sessionId,data){
- if(!data||data.status==='ended')return;
- if(battle?.sessionId===sessionId&&!battle.ended){battle.sharedParticipants=data.participants||battle.sharedParticipants;return;}
- const participantObj=data.participants||{};
- const uids=Object.keys(participantObj);
- const team=uids.map(uid=>{
-   const local=members.find(m=>m.uid===uid);
-   const remote=participantObj[uid]||{};
-   return local||{uid,name:remote.name||'Mathling',avatar:remote.avatar||'🐲',status:'deployed',role:'algebra',skills:remote.skills||{algebra:1,geometry:1,trigonometry:1,statistics:1}};
- });
+ if(!data||data.status==='ended'&&!data.result)return;
+ if(battle?.sessionId===sessionId&&!battle.ended){syncSharedBattle(sessionId,data);return}
+ const me=window.MathClansOnline?.user?.();if(!me)return;
+ const side=data.sides?.attacker?.participants?.[me.uid]?'attacker':data.sides?.defender?.participants?.[me.uid]?'defender':null;if(!side)return;
+ const enemySide=side==='attacker'?'defender':'attacker',sideData=data.sides?.[side]||{},enemyData=data.sides?.[enemySide]||{};
+ const team=Object.keys(sideData.participants||{}).map(uid=>{const local=members.find(m=>m.uid===uid),remote=data.participants?.[uid]||sideData.participants?.[uid]||{};return local||{uid,name:remote.name||'Mathling',avatar:remote.avatar||'🐲',status:'deployed',skills:remote.skills||{algebra:1,geometry:1,trigonometry:1,statistics:1}}});
  if(!team.length)return;
- const enemy=data.enemy||rivals[Number(data.enemyIndex)||0]||rivals[0];
- const selectedIdx=team.map(m=>members.findIndex(x=>x.uid&&m.uid&&x.uid===m.uid)).filter(i=>i>=0);
- selectedIdx.forEach(i=>members[i].status='deployed');renderMembers();renderPresence();
- beginBattleLocal(enemy,team,selectedIdx,sessionId,data);
+ const enemy={name:enemyData.clanName||'Rival Clan',crest:enemyData.guardian||'🐉',region:enemyData.region||'—',rating:Number(enemyData.rating||1500),skills:sideAverageSkills(enemyData.participants||{})};
+ const selectedIdx=team.map(m=>members.findIndex(x=>x.uid&&m.uid&&x.uid===m.uid)).filter(i=>i>=0);selectedIdx.forEach(i=>members[i].status='deployed');renderMembers();renderPresence();
+ beginBattleLocal(enemy,team,selectedIdx,sessionId,{...data,formation:sideData.formation||'balanced',mySide:side,enemySide});syncSharedBattle(sessionId,data);
 }
+function sideAverageSkills(participants){const arr=Object.values(participants||{}),out={algebra:1,geometry:1,trigonometry:1,statistics:1};if(!arr.length)return out;for(const k of Object.keys(out))out[k]=Math.round(arr.reduce((a,m)=>a+Number(m?.skills?.[k]||1),0)/arr.length);return out}
 function beginBattleLocal(enemy,team,selectedIdx,sessionId,sessionData){
- const n=team.length;const avg=k=>Math.round(team.reduce((a,m)=>a+Number(m.skills?.[k]||1),0)/Math.max(1,n));
- battle={enemy,team,selectedIdx,formation:sessionData?.formation||selectedFormation,maxHp:10000,ourHp:10000,enemyHp:10000,seconds:Math.max(1,Math.ceil(((sessionData?.endsAt||Date.now()+90000)-Date.now())/1000)),asked:0,correct:0,combo:0,started:sessionData?.startedAt||Date.now(),question:null,lastQAt:Date.now(),teamPowerSamples:[],forfeitUids:new Set(),skills:Object.fromEntries(Object.keys(SKILLS).map(k=>[k,avg(k)])),sessionId:sessionId||null,sharedParticipants:sessionData?.participants||null};
+ const n=team.length,avg=k=>Math.round(team.reduce((a,m)=>a+Number(m.skills?.[k]||1),0)/Math.max(1,n));
+ battle={enemy,team,selectedIdx,formation:sessionData?.formation||selectedFormation,maxHp:10000,ourHp:10000,enemyHp:10000,seconds:Math.max(1,Math.ceil(((sessionData?.endsAt||Date.now()+90000)-Date.now())/1000)),asked:0,correct:0,combo:0,started:sessionData?.startedAt||Date.now(),question:null,lastQAt:Date.now(),teamPowerSamples:[],forfeitUids:new Set(),skills:Object.fromEntries(Object.keys(SKILLS).map(k=>[k,avg(k)])),sessionId:sessionId||null,sharedParticipants:sessionData?.participants||null,mySide:sessionData?.mySide||null,enemySide:sessionData?.enemySide||null,sharedEndsAt:Number(sessionData?.endsAt||0),sharedResult:null};
  setMusicMode('battle');window.MathClansOnline?.setActivity?.('battle');
- $('#battleOurClan').textContent=state.clan.name;$('#battleEnemyClan').textContent=enemy.name;$('#ourFormation').innerHTML=team.map(m=>`<span class="unit">${m.avatar}</span>`).join('');$('#enemyFormation').innerHTML=team.map((_,i)=>`<span class="unit">${['🐙','🐺','🦇','🐗','🦂','🦅','🐯','🦈','🐍','🦁'][i]}</span>`).join('');$('#battleTeamSize').textContent=`${n}v${n}`;const bf=$('#battleFormation');if(bf)bf.textContent=`${FORMATIONS[battle.formation]?.icon||'⚖'} ${FORMATIONS[battle.formation]?.name||'Balanced'}`;$('#battleSkillRunes').innerHTML=Object.entries(SKILLS).map(([k,s])=>`<div class="rune">${s.icon} ${s.name}<b>${battle.skills[k]}</b></div>`).join('');goScreen('battle');nextMental();updateBattleUi();$('#mentalAnswer').value='';$('#mentalAnswer').focus();battle.timer=setInterval(tickBattle,1000);
+ $('#battleOurClan').textContent=sessionData?.sides?.[battle.mySide]?.clanName||state.clan.name;$('#battleEnemyClan').textContent=enemy.name;$('#ourFormation').innerHTML=team.map(m=>`<span class="unit">${m.avatar}</span>`).join('');const enemyTeam=Object.values(sessionData?.sides?.[battle.enemySide]?.participants||{});$('#enemyFormation').innerHTML=(enemyTeam.length?enemyTeam:team).map((m,i)=>`<span class="unit">${m.avatar||['🐙','🐺','🦇','🐗','🦂','🦅','🐯','🦈','🐍','🦁'][i]}</span>`).join('');$('#battleTeamSize').textContent=sessionData?.sides?`${team.length}v${enemyTeam.length}`:`${n}v${n}`;const bf=$('#battleFormation');if(bf)bf.textContent=`${FORMATIONS[battle.formation]?.icon||'⚖'} ${FORMATIONS[battle.formation]?.name||'Balanced'}`;$('#battleSkillRunes').innerHTML=Object.entries(SKILLS).map(([k,s])=>`<div class="rune">${s.icon} ${s.name}<b>${battle.skills[k]}</b></div>`).join('');goScreen('battle');nextMental();updateBattleUi();$('#mentalAnswer').value='';$('#mentalAnswer').focus();battle.timer=setInterval(tickBattle,1000);
 }
 function mentalQ(){let a=rnd(8,90),b=rnd(2,35),op=['+','−','×'][rnd(0,2)],ans;if(op==='+')ans=a+b;else if(op==='−'){if(b>a)[a,b]=[b,a];ans=a-b}else{a=rnd(2,15);b=rnd(2,12);ans=a*b}return{text:`${a} ${op} ${b}`,ans}}
 function nextMental(){if(!battle)return;battle.question=mentalQ();battle.lastQAt=Date.now();$('#mentalQuestion').textContent=battle.question.text;const a=$('#mentalAnswer');a.value='';setTimeout(()=>{try{a.focus({preventScroll:true})}catch(e){a.focus()}},30)}
@@ -495,36 +493,19 @@ function teammateWaveScore(member){
  return Math.round(100+Math.max(0,40-(simulatedTime-1.5)*10));
 }
 function submitMental(){
- if(!battle||battle.ended)return;const val=Number($('#mentalAnswer').value);if(!Number.isFinite(val))return;
- const elapsed=(Date.now()-battle.lastQAt)/1000;battle.asked++;
- const playerCorrect=val===battle.question.ans;let playerScore=0;
- if(playerCorrect){battle.correct++;battle.combo++;playerScore=Math.round(100+Math.max(0,40-(elapsed-1.5)*10));playSfx('correct')}else{battle.combo=0;playSfx('wrong')}
- let teamScores;
- if(battle.sessionId){
-   const me=window.MathClansOnline?.user?.();
-   window.MathClansClans?.reportBattleScore?.(battle.sessionId,playerScore,playerCorrect,elapsed).catch?.(()=>{});
-   const shared=battle.sharedParticipants||{};
-   teamScores=battle.team.map(m=>m.uid===me?.uid?playerScore:Number(shared[m.uid]?.lastWaveScore||0));
- }else teamScores=[playerScore,...battle.team.slice(1).map(teammateWaveScore)];
- const teamAvg=teamScores.reduce((a,b)=>a+b,0)/Math.max(1,teamScores.length);
- battle.teamPowerSamples.push(teamAvg);if(battle.teamPowerSamples.length>30)battle.teamPowerSamples.shift();
- const troopBonus=1+Math.min(.05,(battle.team.length-1)*.005);
- const fm=FORMATIONS[battle.formation]?.mods||FORMATIONS.balanced.mods;
- const alg=1+softCap(battle.skills.algebra*fm.algebra, .10,95); // formation gently modifies mastery effect
- const trig=playerCorrect&&elapsed<3?1+softCap(battle.skills.trigonometry*fm.trigonometry,.06,110):1;
- let tactical=1;if(Math.random()<Math.min(.05,softCap(battle.skills.statistics*fm.statistics,.05,120))){tactical=1.35;effect('📊 CRITICAL OUTLIER!');playSfx('critical')}
- const enemyBlock=1-softCap(battle.enemy.skills.geometry,.10,100);
- if(playerCorrect||teamAvg>70){const power=(teamAvg/140)*760*troopBonus*alg*trig*tactical;const dmg=Math.max(1,Math.round(power*enemyBlock));battle.enemyHp=Math.max(0,battle.enemyHp-dmg);if(tactical===1)effect(`⚔ TEAM STRIKE ${dmg}`)}
- else{const enemyWave=95+Math.random()*25;const ourBlock=1-softCap(battle.skills.geometry*fm.geometry,.10,100);const enemyDmg=Math.round((enemyWave/140)*620*ourBlock);battle.ourHp=Math.max(0,battle.ourHp-enemyDmg);effect(`🛡 ENEMY COUNTER ${enemyDmg}`);playSfx('shield')}
- updateBattleUi();if(battle.enemyHp<=0||battle.ourHp<=0)return endBattle();nextMental();$('#mentalAnswer').focus()
+ if(!battle||battle.ended)return;const val=Number($('#mentalAnswer').value);if(!Number.isFinite(val))return;const elapsed=(Date.now()-battle.lastQAt)/1000;battle.asked++;const playerCorrect=val===battle.question.ans;let playerScore=0;
+ if(playerCorrect){battle.correct++;battle.combo++;playerScore=Math.round(100+Math.max(0,40-(elapsed-1.5)*10));playSfx('correct')}else{battle.combo=0;playSfx('wrong')}battle.localScoreTotal=Number(battle.localScoreTotal||0)+playerScore;
+ if(battle.sessionId){window.MathClansClans?.reportBattleScore?.(battle.sessionId,playerScore,playerCorrect,elapsed).catch?.(()=>{});effect(playerCorrect?`⚔ ${playerScore} battle points`:'🛡 Miss — keep going');updateBattleUi();nextMental();$('#mentalAnswer').focus();return}
+ const teamScores=[playerScore,...battle.team.slice(1).map(teammateWaveScore)],teamAvg=teamScores.reduce((a,b)=>a+b,0)/Math.max(1,teamScores.length);battle.teamPowerSamples.push(teamAvg);if(battle.teamPowerSamples.length>30)battle.teamPowerSamples.shift();const troopBonus=1+Math.min(.05,(battle.team.length-1)*.005),fm=FORMATIONS[battle.formation]?.mods||FORMATIONS.balanced.mods,alg=1+softCap(battle.skills.algebra*fm.algebra,.10,95),trig=playerCorrect&&elapsed<3?1+softCap(battle.skills.trigonometry*fm.trigonometry,.06,110):1;let tactical=1;if(Math.random()<Math.min(.05,softCap(battle.skills.statistics*fm.statistics,.05,120))){tactical=1.35;effect('📊 CRITICAL OUTLIER!');playSfx('critical')}const enemyBlock=1-softCap(battle.enemy.skills.geometry,.10,100);if(playerCorrect||teamAvg>70){const power=(teamAvg/140)*760*troopBonus*alg*trig*tactical,dmg=Math.max(1,Math.round(power*enemyBlock));battle.enemyHp=Math.max(0,battle.enemyHp-dmg);if(tactical===1)effect(`⚔ TEAM STRIKE ${dmg}`)}else{const enemyWave=95+Math.random()*25,ourBlock=1-softCap(battle.skills.geometry*fm.geometry,.10,100),enemyDmg=Math.round((enemyWave/140)*620*ourBlock);battle.ourHp=Math.max(0,battle.ourHp-enemyDmg);effect(`🛡 ENEMY COUNTER ${enemyDmg}`);playSfx('shield')}updateBattleUi();if(battle.enemyHp<=0||battle.ourHp<=0)return endBattle();nextMental();$('#mentalAnswer').focus()
 }
-function tickBattle(){if(!battle||battle.ended)return;battle.seconds--;$('#battleTimer').textContent=battle.seconds;if(battle.seconds<=0)endBattle();else if(Math.random()<.22){const dmg=Math.round(180*(1-battle.skills.geometry/1500));battle.ourHp=Math.max(0,battle.ourHp-dmg);updateBattleUi();if(battle.ourHp<=0)endBattle()}}
-function updateBattleUi(){if(!battle)return;$('#ourHpBar').style.width=(battle.ourHp/battle.maxHp*100)+'%';$('#enemyHpBar').style.width=(battle.enemyHp/battle.maxHp*100)+'%';$('#ourHpText').textContent=`${battle.ourHp} HP`;$('#enemyHpText').textContent=`${battle.enemyHp} HP`;$('#battleAccuracy').textContent=(battle.asked?Math.round(battle.correct/battle.asked*100):100)+'%';$('#battleCombo').textContent=battle.combo;const a=battle.teamPowerSamples?.length?Math.round(battle.teamPowerSamples.reduce((x,y)=>x+y,0)/battle.teamPowerSamples.length):0;$('#battleTeamAvg').textContent=a}
+function tickBattle(){if(!battle||battle.ended)return;if(battle.sessionId){battle.seconds=Math.max(0,Math.ceil(((battle.sharedEndsAt||Date.now()+1000)-Date.now())/1000));$('#battleTimer').textContent=battle.seconds;if(battle.seconds<=0)window.MathClansClans?.finishBattleForPlayer?.(battle.sessionId).catch?.(()=>{});return}battle.seconds--;$('#battleTimer').textContent=battle.seconds;if(battle.seconds<=0)endBattle();else if(Math.random()<.22){const dmg=Math.round(180*(1-battle.skills.geometry/1500));battle.ourHp=Math.max(0,battle.ourHp-dmg);updateBattleUi();if(battle.ourHp<=0)endBattle()}}
+function updateBattleUi(){if(!battle)return;$('#ourHpBar').style.width=(battle.ourHp/battle.maxHp*100)+'%';$('#enemyHpBar').style.width=(battle.enemyHp/battle.maxHp*100)+'%';$('#ourHpText').textContent=`${Math.round(battle.ourHp)} HP`;$('#enemyHpText').textContent=`${Math.round(battle.enemyHp)} HP`;$('#battleAccuracy').textContent=(battle.asked?Math.round(battle.correct/battle.asked*100):100)+'%';$('#battleCombo').textContent=battle.combo;const a=battle.sharedTeamAvg!=null?Math.round(battle.sharedTeamAvg):(battle.teamPowerSamples?.length?Math.round(battle.teamPowerSamples.reduce((x,y)=>x+y,0)/battle.teamPowerSamples.length):0);$('#battleTeamAvg').textContent=a;const ma=$('#battleMyAvg');if(ma)ma.textContent=battle.asked?Math.round((battle.localScoreTotal||0)/battle.asked):0;const oa=$('#battleOpponentAvg');if(oa)oa.textContent=Math.round(Number(battle.sharedOpponentAvg||0))}
+function syncSharedBattle(sessionId,data){if(!battle||battle.sessionId!==sessionId||!data)return;battle.sharedParticipants=data.participants||{};battle.sharedEndsAt=Number(data.endsAt||battle.sharedEndsAt||Date.now());const my=battle.mySide||'attacker',enemy=battle.enemySide||'defender',sb=data.scoreboard||{};battle.sharedTeamAvg=Number(sb[my]?.teamAvg||0);battle.sharedOpponentAvg=Number(sb[enemy]?.teamAvg||0);battle.ourHp=Number(sb[my]?.hp??battle.ourHp);battle.enemyHp=Number(sb[enemy]?.hp??battle.enemyHp);battle.seconds=Math.max(0,Math.ceil((battle.sharedEndsAt-Date.now())/1000));$('#battleTimer').textContent=battle.seconds;updateBattleUi();if(data.result&&!battle.sharedResult){battle.sharedResult=data.result;endSharedBattle(data.result,data)}}
 function effect(t){$('#battleEffects').innerHTML=`<div class="effect-text">${t}</div>`}
-function endBattle(){if(!battle||battle.ended)return;battle.ended=true;clearInterval(battle.timer);window.MathClansOnline?.setActivity?.('online');if(battle.sessionId)window.MathClansClans?.finishBattleForPlayer?.(battle.sessionId).catch?.(()=>{});(battle.selectedIdx||[]).forEach(i=>members[i].status='ready');selectedMembers.clear();renderMembers();renderPresence();const win=battle.enemyHp<battle.ourHp;const delta=win?rnd(18,28):-rnd(12,20);state.clan.rating=Math.max(1000,state.clan.rating+delta);if(win){state.player.crystals+=80;state.clan.influence=Math.min(100,state.clan.influence+2)}save();renderRanking();$('#clanRating').textContent=state.clan.rating;effect(win?'🏆 VICTORY!':'💥 DEFEAT');playSfx(win?'victory':'defeat');setMusicMode('ambient');showModal(`<span class="eyebrow">CLAN CLASH RESULT</span><h3>${win?'🏆 Victory':'🛡 Defeat'}</h3><p>${state.clan.name} vs ${battle.enemy.name} · ${FORMATIONS[battle.formation]?.icon||'⚖'} ${FORMATIONS[battle.formation]?.name||'Balanced'} Formation</p><div class="clan-stats"><div><span>Accuracy</span><b>${battle.asked?Math.round(battle.correct/battle.asked*100):0}%</b></div><div><span>Rating</span><b>${delta>0?'+':''}${delta}</b></div><div><span>Crystals</span><b>${win?'+80':'0'}</b></div></div><p>Your Algebra, Geometry, Trigonometry and Statistics mastery did <b>not</b> decrease. Only clan rating changes after a loss.</p><div class="modal-actions"><button class="primary" id="returnMap">Return to Map</button></div>`);$('#returnMap').onclick=()=>{closeModal();battle=null;goScreen('map');init()}}
+function endSharedBattle(result,data){if(!battle||battle.ended)return;battle.ended=true;clearInterval(battle.timer);window.MathClansOnline?.setActivity?.('online');(battle.selectedIdx||[]).forEach(i=>{if(members[i])members[i].status='ready'});selectedMembers.clear();renderMembers();renderPresence();const mySide=battle.mySide||'attacker',won=result.winner===mySide,draw=result.winner==='draw',delta=Number(result.ratingDelta?.[mySide]||0),myStats=result.sides?.[mySide]||{},enemyStats=result.sides?.[battle.enemySide]||{};if(won)state.player.crystals+=80;state.clan.rating=Math.max(1000,Number(state.clan.rating||1500)+delta);if(won)state.clan.influence=Math.min(100,Number(state.clan.influence||0)+2);save();renderRanking();const cr=$('#clanRating');if(cr)cr.textContent=state.clan.rating;effect(draw?'⚖ DRAW':won?'🏆 VICTORY!':'💥 DEFEAT');playSfx(draw?'shield':won?'victory':'defeat');setMusicMode('ambient');showModal(`<span class="eyebrow">V1.9 LIVE CLAN CLASH RESULT</span><h3>${draw?'⚖ Draw':won?'🏆 Victory':'🛡 Defeat'}</h3><p>${data?.sides?.[mySide]?.clanName||state.clan.name} vs ${data?.sides?.[battle.enemySide]?.clanName||battle.enemy.name}</p><div class="clan-stats"><div><span>Team Avg</span><b>${Math.round(Number(myStats.teamAvg||0))}</b></div><div><span>Accuracy</span><b>${Math.round(Number(myStats.accuracy||0))}%</b></div><div><span>Final Power</span><b>${Math.round(Number(myStats.finalPower||0))}</b></div><div><span>Opponent Avg</span><b>${Math.round(Number(enemyStats.teamAvg||0))}</b></div><div><span>Rating</span><b>${delta>0?'+':''}${delta}</b></div><div><span>Crystals</span><b>${won?'+80':'0'}</b></div></div><p>Every deployed player is included in the team average. A player who leaves during battle counts as <b>0 points</b>.</p><div class="modal-actions"><button class="primary" id="returnMap">Return to Map</button></div>`);$('#returnMap').onclick=()=>{closeModal();battle=null;goScreen('map');init()}}
+function endBattle(){if(!battle||battle.ended)return;if(battle.sessionId){window.MathClansClans?.finishBattleForPlayer?.(battle.sessionId).catch?.(()=>{});return}battle.ended=true;clearInterval(battle.timer);window.MathClansOnline?.setActivity?.('online');(battle.selectedIdx||[]).forEach(i=>members[i].status='ready');selectedMembers.clear();renderMembers();renderPresence();const win=battle.enemyHp<battle.ourHp,delta=win?rnd(18,28):-rnd(12,20);state.clan.rating=Math.max(1000,state.clan.rating+delta);if(win){state.player.crystals+=80;state.clan.influence=Math.min(100,state.clan.influence+2)}save();renderRanking();$('#clanRating').textContent=state.clan.rating;effect(win?'🏆 VICTORY!':'💥 DEFEAT');playSfx(win?'victory':'defeat');setMusicMode('ambient');showModal(`<span class="eyebrow">CLAN CLASH RESULT</span><h3>${win?'🏆 Victory':'🛡 Defeat'}</h3><p>${state.clan.name} vs ${battle.enemy.name}</p><div class="modal-actions"><button class="primary" id="returnMap">Return to Map</button></div>`);$('#returnMap').onclick=()=>{closeModal();battle=null;goScreen('map');init()}}
 
-
-// ===== V1.8 real clan war lobby + deployment =====
+// ===== V1.9 live multiplayer battle sync =====// ===== V1.8 real clan war lobby + deployment =====
 async function openBattlePicker(){
  if(window.MathClansClans?.isOnlineMode?.()&&!window.MathClansClans?.isLiveClan?.()){toast('Join or create an online clan before deploying.');return}
  const selectedEntries=[...selectedMembers].map(idx=>({idx,member:members[idx]})).filter(x=>x.member);
@@ -537,7 +518,7 @@ async function openBattlePicker(){
  }
  v18WarTargets=targets;
  const n=pendingWarSelection.length;
- showModal(`<span class="eyebrow">V1.8 WAR LOBBY · STEP 1</span><h3>Choose a real clan target</h3><p>Your rally has <b>${n}</b> selected member${n>1?'s':''}. Choose the clan you want to challenge.</p><div class="v18-target-list">${targets.map((r,i)=>`<div class="rival-item battle-pick" data-i="${i}"><div class="rival-crest">${r.crest||r.guardian||'🐉'}</div><div><strong>${r.name}</strong><small>${r.region} · Rating ${r.rating||1500} · ${r.memberCount||0}/30 members${r.ranking?' · Rank #'+r.ranking:''}</small></div><div class="rating-pill">CHALLENGE</div></div>`).join('')}</div><div class="modal-actions"><button class="secondary" data-close>Cancel</button></div>`);
+ showModal(`<span class="eyebrow">V1.9 WAR LOBBY · STEP 1</span><h3>Choose a real clan target</h3><p>Your rally has <b>${n}</b> selected member${n>1?'s':''}. Choose the clan you want to challenge.</p><div class="v18-target-list">${targets.map((r,i)=>`<div class="rival-item battle-pick" data-i="${i}"><div class="rival-crest">${r.crest||r.guardian||'🐉'}</div><div><strong>${r.name}</strong><small>${r.region} · Rating ${r.rating||1500} · ${r.memberCount||0}/30 members${r.ranking?' · Rank #'+r.ranking:''}</small></div><div class="rating-pill">CHALLENGE</div></div>`).join('')}</div><div class="modal-actions"><button class="secondary" data-close>Cancel</button></div>`);
  $('[data-close]').onclick=()=>{pendingWarSelection=[];v18WarTargets=null;closeModal()};
  $$('.battle-pick').forEach(el=>el.onclick=()=>openWarCouncil(+el.dataset.i));
 }
@@ -546,7 +527,7 @@ function openWarCouncil(i){
  const selectedEntries=(pendingWarSelection||[]).map(x=>({idx:x.idx,uid:x.uid,member:x.member})).filter(x=>x.member),team=selectedEntries.map(x=>x.member);
  if(!enemy||!team.length){closeModal();goScreen('clan');toast('Your selected roster changed. Select members again.');return}
  const avg=k=>Math.round(team.reduce((s,m)=>s+(Number(m?.skills?.[k])||0),0)/Math.max(1,team.length));
- showModal(`<span class="eyebrow">V1.8 WAR LOBBY · STEP 2</span><h3>${state.clan.guardian} ${state.clan.name} → ${enemy.crest||enemy.guardian||'🐉'} ${enemy.name}</h3><p>Choose a formation, then rally your selected members. If they accept, a live challenge is sent to ${enemy.name}.</p><div class="war-team-preview">${team.map(m=>`<div><span>${m.avatar}</span><small>${m.name}</small></div>`).join('')}</div><div class="war-stat-grid">${Object.entries(SKILLS).map(([k,s])=>`<div><span>${s.icon} ${s.name}</span><b>${avg(k)}</b></div>`).join('')}</div><div class="formation-picker">${Object.entries(FORMATIONS).map(([k,f])=>`<button type="button" class="formation-card ${selectedFormation===k?'selected':''}" data-formation="${k}"><span>${f.icon}</span><strong>${f.name}</strong><small>${f.desc}</small></button>`).join('')}</div><div class="modal-actions"><button type="button" class="secondary" id="warBack">Back</button><button type="button" class="primary" id="confirmMarch">Rally ${team.length} Member${team.length>1?'s':''}</button></div>`);
+ showModal(`<span class="eyebrow">V1.9 WAR LOBBY · STEP 2</span><h3>${state.clan.guardian} ${state.clan.name} → ${enemy.crest||enemy.guardian||'🐉'} ${enemy.name}</h3><p>Choose a formation, then rally your selected members. If they accept, a live challenge is sent to ${enemy.name}.</p><div class="war-team-preview">${team.map(m=>`<div><span>${m.avatar}</span><small>${m.name}</small></div>`).join('')}</div><div class="war-stat-grid">${Object.entries(SKILLS).map(([k,s])=>`<div><span>${s.icon} ${s.name}</span><b>${avg(k)}</b></div>`).join('')}</div><div class="formation-picker">${Object.entries(FORMATIONS).map(([k,f])=>`<button type="button" class="formation-card ${selectedFormation===k?'selected':''}" data-formation="${k}"><span>${f.icon}</span><strong>${f.name}</strong><small>${f.desc}</small></button>`).join('')}</div><div class="modal-actions"><button type="button" class="secondary" id="warBack">Back</button><button type="button" class="primary" id="confirmMarch">Rally ${team.length} Member${team.length>1?'s':''}</button></div>`);
  $('#warBack').onclick=()=>{closeModal();openBattlePicker()};
  $$('.formation-card').forEach(b=>b.onclick=()=>{selectedFormation=b.dataset.formation;openWarCouncil(i)});
  $('#confirmMarch').onclick=()=>{
@@ -563,28 +544,6 @@ function openWarCouncil(i){
      });
    }else{pendingWarSelection=[];closeModal();marchToRival(i)}
  };
-}
-function joinSharedBattle(sessionId,data){
- if(!data||data.status==='ended')return;
- // V1.8 cross-clan sessions contain two sides. Convert the current player's side
- // to the battle shape used by the V1.7 client; fully synchronized opposing scores arrive in V1.9.
- if(data.sides){
-   const me=window.MathClansOnline?.user?.();
-   const atk=data.sides.attacker||{},def=data.sides.defender||{};
-   const mine=me?.uid&&atk.participants?.[me.uid]?atk:(me?.uid&&def.participants?.[me.uid]?def:null);
-   const opp=mine===atk?def:atk;
-   if(!mine)return;
-   const adapted={...data,clanId:mine.clanId,clanName:mine.clanName,formation:mine.formation||'balanced',participants:mine.participants||{},enemy:{name:opp.clanName||'Rival Clan',crest:opp.guardian||'⚔',region:opp.region||'Lion City',rating:opp.rating||1500,skills:opp.skills||{algebra:50,geometry:50,trigonometry:50,statistics:50}}};
-   return joinSharedBattleV17(sessionId,adapted);
- }
- return joinSharedBattleV17(sessionId,data);
-}
-function joinSharedBattleV17(sessionId,data){
- if(!data||data.status==='ended')return;
- if(battle?.sessionId===sessionId&&!battle.ended){battle.sharedParticipants=data.participants||battle.sharedParticipants;return;}
- const participantObj=data.participants||{},uids=Object.keys(participantObj);
- const team=uids.map(uid=>{const local=members.find(m=>m.uid===uid),remote=participantObj[uid]||{};return local||{uid,name:remote.name||'Mathling',avatar:remote.avatar||'🐲',status:'deployed',role:'algebra',skills:remote.skills||{algebra:1,geometry:1,trigonometry:1,statistics:1}}});
- if(!team.length)return;const enemy=data.enemy||rivals[0];const selectedIdx=team.map(m=>members.findIndex(x=>x.uid&&m.uid&&x.uid===m.uid)).filter(i=>i>=0);selectedIdx.forEach(i=>members[i].status='deployed');renderMembers();renderPresence();beginBattleLocal(enemy,team,selectedIdx,sessionId,data);
 }
 
 init();
