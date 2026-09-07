@@ -148,6 +148,7 @@
       provider.setCustomParameters({prompt: 'select_account'});
       const result = await auth.signInWithPopup(provider);
       const u = result.user;
+      if (typeof closeModal === 'function') closeModal();
       if (allowedDomain && u?.email) {
         const domain = u.email.split('@').pop().toLowerCase();
         if (domain !== allowedDomain) {
@@ -164,6 +165,7 @@
   async function signOut() {
     try { await syncProgress(true); } catch(e) {}
     await auth.signOut();
+    if (typeof closeModal === 'function') closeModal();
   }
 
   function openAccountPanel() {
@@ -172,12 +174,13 @@
       return;
     }
     if (!user) {
-      modal(`<span class="eyebrow">PLAYER ACCOUNT</span><h3>Sign in to MathClans</h3><p>Use your school Google account. Your email is used for authentication and is not shown as your public player name.</p><div class="online-account-actions"><button class="primary" id="googleSignInBtn">Sign in with Google</button></div><p class="online-small">V1.6 stores your player profile and Math progress in Firebase and tracks whether you are online.</p>`);
-      setTimeout(() => { const b=$o('#googleSignInBtn'); if(b) b.onclick=signInGoogle; }, 0);
+      modal(`<span class="eyebrow">PLAYER ACCOUNT</span><h3>Sign in to MathClans</h3><p>Use your school Google account. Your email is used for authentication and is not shown as your public player name.</p><div class="online-account-actions"><button class="primary" id="googleSignInBtn">Sign in with Google</button></div><p class="online-small">V1.6 stores your player profile and Math progress in Firebase and tracks whether you are online.</p><div class="modal-actions"><button class="secondary" id="accountCloseBtn">Close</button></div>`);
+      setTimeout(() => { const b=$o('#googleSignInBtn'); if(b) b.onclick=signInGoogle; const c=$o('#accountCloseBtn'); if(c) c.onclick=()=>{ if (typeof closeModal === 'function') closeModal(); }; }, 0);
       return;
     }
-    modal(`<span class="eyebrow">ONLINE PLAYER</span><h3>${state?.player?.name || user.displayName || 'Mathling'}</h3><div class="online-profile-card"><div class="online-avatar">${state?.player?.avatar || '🐲'}</div><div><b>${user.email || ''}</b><span>Cloud progress: connected</span><span>Presence: online</span></div></div><div class="modal-actions"><button class="secondary" id="syncNowBtn">Sync Now</button><button class="primary" id="signOutBtn">Sign Out</button></div>`);
+    modal(`<span class="eyebrow">ONLINE PLAYER</span><h3>${state?.player?.name || user.displayName || 'Mathling'}</h3><div class="online-profile-card"><div class="online-avatar">${state?.player?.avatar || '🐲'}</div><div><b>${user.email || ''}</b><span>Cloud progress: connected</span><span>Presence: online</span></div></div><div class="modal-actions"><button class="secondary" id="accountCloseBtn">Close</button><button class="secondary" id="syncNowBtn">Sync Now</button><button class="primary" id="signOutBtn">Sign Out</button></div>`);
     setTimeout(() => {
+      const c=$o('#accountCloseBtn'); if(c) c.onclick=()=>{ if (typeof closeModal === 'function') closeModal(); };
       const s=$o('#syncNowBtn'); if(s) s.onclick=async()=>{await syncProgress(true); s.textContent='Synced ✓';};
       const b=$o('#signOutBtn'); if(b) b.onclick=signOut;
     },0);
