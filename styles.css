@@ -182,3 +182,9 @@ body[data-screen="train"] #screen-train .confidence-row{margin-top:5px}.difficul
 /* ===== V1.7.1 onboarding, rally and balanced worked choices ===== */
 .onboarding-steps{display:grid;gap:10px;margin:14px 0}.onboarding-step{display:grid;grid-template-columns:42px 1fr;gap:10px;align-items:start;padding:10px;border:1px solid #d9b35a33;border-radius:12px;background:#160f0bc7}.onboarding-step>span{font-size:1.7rem;text-align:center}.onboarding-step strong{display:block;margin-bottom:3px}.onboarding-step small{display:block;opacity:.8;line-height:1.4}.rally-box{margin:14px 0;padding:14px;border:1px solid #e2bd6266;border-radius:14px;background:#17100bd9}.rally-countdown{font-size:2.2rem;font-weight:900;text-align:center;color:#f0cb6a;text-shadow:0 0 15px #e6a84c55}.rally-roster{display:grid;gap:7px;margin-top:10px}.rally-row{display:grid;grid-template-columns:32px 1fr auto;gap:8px;align-items:center;padding:7px 8px;border-radius:9px;background:#ffffff08}.rally-state{font-size:.75rem;font-weight:900}.rally-state.accepted{color:#69e38f}.rally-state.rejected{color:#ef7d6d}.rally-state.pending{color:#e2bd62}.step-note{opacity:.88}.worked-option .math-lines{min-height:4.4em}.battle-disconnected{color:#ef7d6d;font-weight:900}
 @media(max-width:760px){#helpBtn span{display:none}.rally-row{grid-template-columns:28px 1fr auto}.onboarding-step{grid-template-columns:34px 1fr}}
+
+/* V1.7.1a onboarding/modal viewport fix */
+.modal-backdrop{overflow:auto;align-items:start;padding-top:max(18px,env(safe-area-inset-top));padding-bottom:max(18px,env(safe-area-inset-bottom))}
+.modal{max-height:calc(100dvh - 36px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.modal-actions{position:sticky;bottom:-22px;z-index:2;padding:14px 0 4px;background:linear-gradient(180deg,transparent 0,#241b15 34%,#241b15 100%)}
+@media(max-height:760px){.modal{padding:18px}.modal h3{font-size:25px}.onboarding-step{padding:10px}.modal-actions{bottom:-18px}}
