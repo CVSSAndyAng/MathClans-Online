@@ -1,6 +1,6 @@
-# MathClans V2.0 — School-Wide Release
+# MathClans V2.1 — Clan Approval & School-Safe Chat
 
-V2.0 consolidates the online foundation, adaptive training, real clans, voluntary war rallies, real clan-vs-clan war lobbies and synchronized live battles into the school-wide release build.
+V2.1 builds on the V2.0 school-wide release with leader-approved clan membership and school-safe Main/Clan chat, while preserving adaptive training, live multiplayer battles, rankings and administration.
 
 ## New in V2.0
 
@@ -82,3 +82,27 @@ Use at least two student accounts plus one admin account if possible.
 ## Important deployment note
 
 This build substantially tightens Firebase rules, but live battle result calculation still runs in authenticated browser clients. That is suitable for a supervised school game and beta deployment, but it is not fully cheat-resistant against a technically sophisticated user who deliberately modifies client code. Fully authoritative anti-cheat validation would require trusted server-side execution (for example Cloud Functions / Cloud Run / another server endpoint) and should be added if MathClans is later used for high-stakes competition.
+
+---
+
+## V2.1 — Clan Membership Approval & School-Safe Chat
+
+### Clan membership
+- Students now **Request to Join** instead of joining immediately.
+- Only the clan leader can Accept or Reject pending applications.
+- After acceptance, the applicant becomes a normal clan member and the clan count is updated.
+- **Clan leaders cannot kick/remove existing members.** Existing members may leave only on their own accord.
+- Teachers/admins retain moderation authority for exceptional school-safety cases.
+- If the leader leaves, leadership still transfers to the longest-serving remaining member. If the final member leaves, the clan is deleted.
+
+### Chat
+- New **Main Channel** for all signed-in MathClans players.
+- New private **Clan Channel** available only to members of that clan.
+- Messages are limited to 240 characters.
+- Client-side school-safe language filtering rejects vulgar/inappropriate messages before posting, including common spacing/punctuation/letter-substitution bypass attempts.
+- Chat messages can be reported to teachers/admins.
+- Admin Center now includes **Mute Chat / Unmute Chat** per player without suspending the whole account.
+- Basic 2-second anti-spam send delay is included in the game client.
+
+### Important production note
+The V2.1 language filter is suitable for the school beta client, but a public/commercial release should move language moderation and rate-limiting to trusted server-side Cloud Functions or another moderation service so modified clients cannot bypass it.

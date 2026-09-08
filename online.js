@@ -1,4 +1,4 @@
-/* MathClans V2.0 School-Wide Release
+/* MathClans V2.1 Clan Approval + School-Safe Chat
    - Google/Firebase Authentication
    - persistent player profile in Firestore
    - Realtime Database presence
@@ -220,15 +220,15 @@
 
   function openAccountPanel() {
     if (!configured) {
-      modal(`<span class="eyebrow">V2.0 SCHOOL-WIDE RELEASE</span><h3>Firebase setup required</h3><p>The game is currently running in <b>Local Demo</b> mode. Gameplay still works, but accounts, online presence and cloud progress are disabled.</p><p>Open <b>README.md</b> in this package and complete the Firebase setup, then paste the Web App configuration into <b>firebase-config.js</b>.</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Continue Local Demo</button></div>`);
+      modal(`<span class="eyebrow">V2.1 SCHOOL-WIDE RELEASE</span><h3>Firebase setup required</h3><p>The game is currently running in <b>Local Demo</b> mode. Gameplay still works, but accounts, online presence and cloud progress are disabled.</p><p>Open <b>README.md</b> in this package and complete the Firebase setup, then paste the Web App configuration into <b>firebase-config.js</b>.</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Continue Local Demo</button></div>`);
       return;
     }
     if (!user) {
-      modal(`<span class="eyebrow">PLAYER ACCOUNT</span><h3>Sign in to MathClans</h3><p>Use your school Google account. Your email is used for authentication and is not shown as your public player name.</p><div class="online-account-actions"><button class="primary" id="googleSignInBtn">Sign in with Google</button></div><p class="online-small">V2.0 stores your player profile and Math progress in Firebase and supports school-wide clans, rankings and live battles.</p><div class="modal-actions"><button class="secondary" id="accountCloseBtn">Close</button></div>`);
+      modal(`<span class="eyebrow">PLAYER ACCOUNT</span><h3>Sign in to MathClans</h3><p>Use your school Google account. Your email is used for authentication and is not shown as your public player name.</p><div class="online-account-actions"><button class="primary" id="googleSignInBtn">Sign in with Google</button></div><p class="online-small">V2.1 stores your player profile and Math progress in Firebase and supports school-wide clans, rankings and live battles.</p><div class="modal-actions"><button class="secondary" id="accountCloseBtn">Close</button></div>`);
       setTimeout(() => { const b=$o('#googleSignInBtn'); if(b) b.onclick=signInGoogle; const c=$o('#accountCloseBtn'); if(c) c.onclick=()=>{ if (typeof closeModal === 'function') closeModal(); }; }, 0);
       return;
     }
-    modal(`<span class="eyebrow">ONLINE PLAYER · V2.0</span><h3>${state?.player?.name || user.displayName || 'Mathling'}</h3><div class="online-profile-card"><div class="online-avatar">${state?.player?.avatar || '🐲'}</div><div><b>${user.email || ''}</b><span>Cloud progress: connected</span><span>Presence: online</span>${state?.player?.schoolClass?`<span>Class: ${esc(state.player.schoolClass)}</span>`:''}</div></div><div class="modal-actions"><button class="secondary" id="accountCloseBtn">Close</button><button class="secondary" id="editProfileBtn">Edit Profile</button><button class="secondary" id="syncNowBtn">Sync Now</button>${isAdminUser?'<button class="secondary" id="adminCenterBtn">Admin Center</button>':''}<button class="primary" id="signOutBtn">Sign Out</button></div>`);
+    modal(`<span class="eyebrow">ONLINE PLAYER · V2.1</span><h3>${state?.player?.name || user.displayName || 'Mathling'}</h3><div class="online-profile-card"><div class="online-avatar">${state?.player?.avatar || '🐲'}</div><div><b>${user.email || ''}</b><span>Cloud progress: connected</span><span>Presence: online</span>${state?.player?.schoolClass?`<span>Class: ${esc(state.player.schoolClass)}</span>`:''}</div></div><div class="modal-actions"><button class="secondary" id="accountCloseBtn">Close</button><button class="secondary" id="editProfileBtn">Edit Profile</button><button class="secondary" id="syncNowBtn">Sync Now</button>${isAdminUser?'<button class="secondary" id="adminCenterBtn">Admin Center</button>':''}<button class="primary" id="signOutBtn">Sign Out</button></div>`);
     setTimeout(() => {
       const c=$o('#accountCloseBtn'); if(c) c.onclick=()=>{ if (typeof closeModal === 'function') closeModal(); };
       const e=$o('#editProfileBtn'); if(e)e.onclick=()=>openProfileEditor(false);

@@ -1,0 +1,29 @@
+/* MathClans V2.1 school-safe chat: Main + private Clan channels */
+(()=>{
+'use strict';
+const $=q=>document.querySelector(q);
+const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]||c));
+let db=null,user=null,channel='main',unsub=null,lastSendAt=0,clanName='Clan';
+const BLOCKED=[
+  'fuck','fucker','fucking','shit','shitty','bitch','bastard','asshole','dick','cunt','cb','cheebye','chee bye','knn','kanina','lanjiao','lj','puki','pundek','motherfucker'
+];
+function normalizeText(s){return String(s||'').toLowerCase().normalize('NFKD').replace(/[0@]/g,'o').replace(/[1!|]/g,'i').replace(/3/g,'e').replace(/4/g,'a').replace(/5|\$/g,'s').replace(/7/g,'t').replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim()}
+function compactText(s){return normalizeText(s).replace(/\s+/g,'')}
+function hasBlockedLanguage(text){const n=normalizeText(text),c=compactText(text);return BLOCKED.some(w=>{const wn=normalizeText(w),wc=wn.replace(/\s+/g,'');if(wn.length<=2)return n.split(' ').includes(wn);return n.includes(wn)||c.includes(wc)})}
+function toast(m){window.MathClansGame?.toast?.(m)}
+function currentClanId(){return state?.player?.clanId||null}
+function messageCollection(){const cid=currentClanId();return channel==='main'?db.collection('chatMain'):(cid?db.collection('clans').doc(cid).collection('chat'):null)}
+function setStatus(t){const el=$('#chatStatus');if(el)el.textContent=t}
+async function resolveClanName(){const cid=currentClanId();clanName='Clan';if(!cid||!db)return;try{const s=await db.collection('clans').doc(cid).get();if(s.exists)clanName=s.data()?.name||'Clan'}catch(e){}}
+function renderChannelButtons(){const cid=currentClanId(),main=$('#chatMainTab'),clan=$('#chatClanTab');if(main)main.classList.toggle('active',channel==='main');if(clan){clan.disabled=!cid;clan.classList.toggle('active',channel==='clan');clan.textContent=cid?`🏰 ${clanName}`:'🏰 Clan';}}
+function renderMessages(snap){const box=$('#chatMessages');if(!box)return;const rows=snap.docs.slice().reverse();box.innerHTML=rows.length?rows.map(d=>{const x=d.data()||{},mine=x.senderUid===user?.uid;return `<div class="chat-message ${mine?'mine':''}"><div class="chat-avatar">${esc(x.senderAvatar||'🐲')}</div><div class="chat-bubble"><div class="chat-message-head"><strong>${esc(x.senderName||'Mathling')}</strong><small>${new Date(Number(x.createdAtMs||Date.now())).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small></div><div class="chat-text">${esc(x.text||'')}</div><button class="chat-report" data-id="${d.id}" data-name="${esc(x.senderName||'Mathling')}">🚩 Report</button></div></div>`}).join(''):'<div class="chat-empty">No messages yet. Start a respectful MathClans conversation.</div>';box.scrollTop=box.scrollHeight;box.querySelectorAll('.chat-report').forEach(b=>b.onclick=()=>reportMessage(b.dataset.id,b.dataset.name));}
+function watch(){if(unsub){unsub();unsub=null}if(!db||!user)return;const col=messageCollection();if(!col){setStatus('Join a clan to use Clan Chat.');const b=$('#chatMessages');if(b)b.innerHTML='<div class="chat-empty">Clan Chat becomes available after you join a clan.</div>';return}setStatus(channel==='main'?'Main Channel · school-wide':`${clanName} · members only`);unsub=col.orderBy('createdAtMs','desc').limit(60).onSnapshot(renderMessages,e=>{console.warn('chat',e);setStatus('Chat unavailable. Check Firestore rules.')});}
+async function switchChannel(next){if(next==='clan'&&!currentClanId()){toast('Join a clan to use Clan Chat.');return}channel=next;await resolveClanName();renderChannelButtons();watch()}
+async function muted(){try{const s=await db.collection('players').doc(user.uid).get();const p=s.data()||{};return p.moderation?.chatMuted===true||p.moderation?.status==='suspended'}catch(e){return false}}
+async function send(e){e?.preventDefault();if(!user||!db){toast('Sign in to chat.');return}const input=$('#chatInput'),btn=$('#chatSendBtn');let text=(input?.value||'').trim();if(!text)return;if(text.length>240){toast('Messages are limited to 240 characters.');return}if(Date.now()-lastSendAt<2000){toast('Please wait a moment before sending another message.');return}if(hasBlockedLanguage(text)){toast('Message not sent: inappropriate language detected.');return}if(await muted()){toast('Chat access is currently muted. Please speak to a teacher.');return}const col=messageCollection();if(!col){toast('Join a clan to use Clan Chat.');return}lastSendAt=Date.now();if(btn)btn.disabled=true;try{await col.add({text,senderUid:user.uid,senderName:state?.player?.name||user.displayName||'Mathling',senderAvatar:state?.player?.avatar||'🐲',channelType:channel,clanId:channel==='clan'?currentClanId():null,createdAtMs:Date.now(),createdAt:firebase.firestore.FieldValue.serverTimestamp()});if(input)input.value=''}catch(err){console.error(err);toast('Message could not be sent.')}finally{if(btn)btn.disabled=false}}
+function reportMessage(id,sender){const target=channel==='main'?`main/${id}`:`clan/${currentClanId()}/${id}`;window.MathClansAdmin?.report?.('chatMessage',target,`${sender} · ${channel==='main'?'Main Channel':clanName}`)}
+async function open(){if(!window.MathClansOnline?.configured||!window.MathClansOnline.user()){toast('Sign in to use chat.');return}db=window.MathClansOnline.db();user=window.MathClansOnline.user();await resolveClanName();if(channel==='clan'&&!currentClanId())channel='main';renderChannelButtons();watch()}
+function init(){const form=$('#chatForm'),main=$('#chatMainTab'),clan=$('#chatClanTab');if(form)form.onsubmit=send;if(main)main.onclick=()=>switchChannel('main');if(clan)clan.onclick=()=>switchChannel('clan');document.addEventListener('mathclans:screen',e=>{if(e.detail==='chat')open()});}
+window.MathClansChat={open,switchChannel,hasBlockedLanguage};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();

@@ -1,4 +1,4 @@
-/* MathClans V2.0 school administration + moderation console */
+/* MathClans V2.1 school administration + moderation console */
 (()=>{
 'use strict';
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
@@ -19,9 +19,9 @@ async function counts(){
 async function onlineCount(){try{const s=await window.MathClansOnline.rtdb().ref('presence').once('value');const v=s.val()||{};return Object.values(v).filter(x=>x&&(x.state==='online'||x.state==='away')).length}catch(e){return 0}}
 async function open(){
  if(!await check()){toast('Administrator access required.');return}
- modal('<span class="eyebrow">V2.0 SCHOOL ADMIN</span><h3>Loading administration dashboard…</h3>');
+ modal('<span class="eyebrow">V2.1 SCHOOL ADMIN</span><h3>Loading administration dashboard…</h3>');
  const [c,on]=await Promise.all([counts(),onlineCount()]);
- modal(`<span class="eyebrow">V2.0 SCHOOL ADMIN</span><h3>MathClans Administration</h3><p>Use this console for school-wide oversight. Student Google email addresses are shown only to authorised administrators.</p><div class="admin-grid"><div class="admin-stat"><span>Players</span><b>${c.players}</b></div><div class="admin-stat"><span>Clans</span><b>${c.clans}</b></div><div class="admin-stat"><span>Online now</span><b>${on}</b></div><div class="admin-stat"><span>Recent battles</span><b>${c.battles}</b></div></div><div class="modal-actions"><button class="secondary" id="adminPlayers">Players</button><button class="secondary" id="adminClans">Clans</button><button class="secondary" id="adminReports">Reports</button><button class="primary" id="adminClose">Close</button></div>`);
+ modal(`<span class="eyebrow">V2.1 SCHOOL ADMIN</span><h3>MathClans Administration</h3><p>Use this console for school-wide oversight. Student Google email addresses are shown only to authorised administrators.</p><div class="admin-grid"><div class="admin-stat"><span>Players</span><b>${c.players}</b></div><div class="admin-stat"><span>Clans</span><b>${c.clans}</b></div><div class="admin-stat"><span>Online now</span><b>${on}</b></div><div class="admin-stat"><span>Recent battles</span><b>${c.battles}</b></div></div><div class="modal-actions"><button class="secondary" id="adminPlayers">Players</button><button class="secondary" id="adminClans">Clans</button><button class="secondary" id="adminReports">Reports</button><button class="primary" id="adminClose">Close</button></div>`);
  setTimeout(()=>{$('#adminPlayers').onclick=openPlayers;$('#adminClans').onclick=openClans;$('#adminReports').onclick=openReports;$('#adminClose').onclick=closeModal},0);
 }
 async function openPlayers(){
@@ -29,8 +29,12 @@ async function openPlayers(){
  const [s,priv]=await Promise.all([db.collection('players').orderBy('updatedAtMs','desc').limit(100).get(),db.collection('privateProfiles').limit(500).get()]);
  const emails=new Map(priv.docs.map(d=>[d.id,d.data()?.email||'']));
  const rows=s.docs.map(d=>({id:d.id,...d.data(),email:emails.get(d.id)||''}));
- modal(`<span class="eyebrow">ADMIN · PLAYERS</span><h3>Player accounts</h3><p>Showing up to 100 recently active accounts.</p><div class="admin-table">${rows.map(p=>{const suspended=p.moderation?.status==='suspended';return `<div class="admin-row"><span>${p.avatar||'🐲'}</span><div><strong>${esc(p.displayName||'Mathling')}</strong><small>${esc(p.email||'')} ${p.schoolClass?'· '+esc(p.schoolClass):''}</small></div><div class="admin-meta">Lv ${Number(p.level||1)} · ${Number(p.totalSkill||0)} mastery</div><div class="admin-actions"><button class="secondary admin-toggle" data-id="${p.id}" data-suspended="${suspended?'1':'0'}">${suspended?'Restore':'Suspend'}</button></div></div>`}).join('')}</div><div class="modal-actions"><button class="secondary" id="adminBack">Back</button><button class="primary" id="adminClose">Close</button></div>`);
- setTimeout(()=>{$('.admin-table')?.querySelectorAll('.admin-toggle').forEach(b=>b.onclick=()=>toggleSuspend(b.dataset.id,b.dataset.suspended==='1'));$('#adminBack').onclick=open;$('#adminClose').onclick=closeModal},0);
+ modal(`<span class="eyebrow">ADMIN · PLAYERS</span><h3>Player accounts</h3><p>Showing up to 100 recently active accounts.</p><div class="admin-table">${rows.map(p=>{const suspended=p.moderation?.status==='suspended';return `<div class="admin-row"><span>${p.avatar||'🐲'}</span><div><strong>${esc(p.displayName||'Mathling')}</strong><small>${esc(p.email||'')} ${p.schoolClass?'· '+esc(p.schoolClass):''}</small></div><div class="admin-meta">Lv ${Number(p.level||1)} · ${Number(p.totalSkill||0)} mastery</div><div class="admin-actions"><button class="secondary admin-chatmute" data-id="${p.id}" data-muted="${p.moderation?.chatMuted?'1':'0'}">${p.moderation?.chatMuted?'Unmute Chat':'Mute Chat'}</button><button class="secondary admin-toggle" data-id="${p.id}" data-suspended="${suspended?'1':'0'}">${suspended?'Restore':'Suspend'}</button></div></div>`}).join('')}</div><div class="modal-actions"><button class="secondary" id="adminBack">Back</button><button class="primary" id="adminClose">Close</button></div>`);
+ setTimeout(()=>{$('.admin-table')?.querySelectorAll('.admin-toggle').forEach(b=>b.onclick=()=>toggleSuspend(b.dataset.id,b.dataset.suspended==='1'));$('.admin-table')?.querySelectorAll('.admin-chatmute').forEach(b=>b.onclick=()=>toggleChatMute(b.dataset.id,b.dataset.muted==='1'));$('#adminBack').onclick=open;$('#adminClose').onclick=closeModal},0);
+}
+
+async function toggleChatMute(uid,currently){
+ if(!await check())return;const ref=db.collection('players').doc(uid),snap=await ref.get(),m=snap.data()?.moderation||{};await ref.set({moderation:{...m,chatMuted:!currently,chatMutedAtMs:Date.now(),chatMutedBy:user.uid},updatedAtMs:Date.now()},{merge:true});toast(currently?'Chat access restored.':'Player muted from chat.');openPlayers();
 }
 async function toggleSuspend(uid,currently){
  if(!await check())return;let reason='';if(!currently)reason=prompt('Reason for suspension (visible to the student):','Please speak to your teacher.')||'Please speak to your teacher.';

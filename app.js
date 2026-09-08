@@ -261,7 +261,7 @@ function wire(){
  $('#mentalForm').onsubmit=e=>{e.preventDefault();submitMental();safeAudioStart()};
  $('#editClanBtn').onclick=()=>{openClanEditor();safeAudioStart()};
 }
-function goScreen(name){document.body.dataset.screen=name;if(name==='hero')renderHero();if(name==='clan')renderPresence();setMusicMode(name==='battle'&&battle?'battle':'ambient');$$('.screen').forEach(s=>s.classList.remove('active'));$('#screen-'+name).classList.add('active');$$('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));window.scrollTo({top:0,left:0,behavior:'instant'});if(name==='battle'&&!battle) openBattlePicker()}
+function goScreen(name){document.body.dataset.screen=name;if(name==='hero')renderHero();if(name==='clan')renderPresence();setMusicMode(name==='battle'&&battle?'battle':'ambient');$$('.screen').forEach(s=>s.classList.remove('active'));const target=$('#screen-'+name);if(target)target.classList.add('active');$$('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));window.scrollTo({top:0,left:0,behavior:'instant'});if(name==='battle'&&!battle) openBattlePicker();document.dispatchEvent(new CustomEvent('mathclans:screen',{detail:name}))}
 function renderRivals(){
  $('#rivalList').innerHTML=rivals.map((r,i)=>`<div class="rival-item" data-i="${i}"><div class="rival-crest">${r.crest}</div><div><strong>${r.name}</strong><small>${r.region} · ${Math.abs(r.rating-state.clan.rating)} rating gap</small></div><div class="rating-pill">${r.rating}</div></div>`).join('');
  $('#rivalList').querySelectorAll('.rival-item').forEach(el=>el.onclick=()=>openRival(+el.dataset.i));

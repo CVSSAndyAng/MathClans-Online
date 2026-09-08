@@ -91,7 +91,7 @@
 
       <section id="screen-clan" class="screen">
         <div class="section-head"><div><span class="eyebrow">CLAN HALL</span><h2 id="clanTitle">Merlion Scholars</h2><p>Choose 1–10 available members for war. Each selected member becomes one deployed troop. Battle scoring uses team averages, so larger teams do not automatically win.</p></div><button class="primary" id="editClanBtn">Edit Clan</button></div>
-        <div class="online-clan-panel fantasy-panel" id="onlineClanPanel"><div><span class="eyebrow">V1.7.2 ONLINE CLAN</span><strong id="onlineClanStatus">Checking Firebase clan membership…</strong><small id="onlineClanHint">Signed-in players can create or join a real clan with up to 30 members.</small></div><div class="online-clan-actions" id="onlineClanActions"></div></div>
+        <div class="online-clan-panel fantasy-panel" id="onlineClanPanel"><div><span class="eyebrow">V2.1 ONLINE CLAN</span><strong id="onlineClanStatus">Checking Firebase clan membership…</strong><small id="onlineClanHint">Signed-in players can create a clan or request to join one. Clan leaders approve new members.</small></div><div class="online-clan-actions" id="onlineClanActions"></div></div>
         <div class="presence-strip fantasy-panel" id="presenceStrip">
           <div><span>👥 MEMBERS</span><b id="presenceMembers">10</b></div>
           <div><span>🟢 ONLINE</span><b id="presenceOnline">0</b></div>
@@ -129,21 +129,33 @@
         <div class="mental-console fantasy-panel"><div class="mental-meta"><span>MENTAL SUM CHAIN</span><span>Team <b id="battleTeamSize">1v1</b></span><span>Formation <b id="battleFormation">Balanced</b></span><span>Accuracy <b id="battleAccuracy">100%</b></span><span>My Avg <b id="battleMyAvg">0</b></span><span>Team Avg <b id="battleTeamAvg">0</b></span><span>Opp Avg <b id="battleOpponentAvg">0</b></span><span>Combo <b id="battleCombo">0</b></span></div><div class="mental-question" id="mentalQuestion">18 + 27</div><form id="mentalForm"><input id="mentalAnswer" inputmode="numeric" enterkeyhint="go" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Answer" aria-label="Mental sum answer" /><button class="primary" id="strikeBtn" type="submit">Strike</button></form><div class="skill-runes" id="battleSkillRunes"></div></div>
       </section>
 
-      <section id="screen-ranking" class="screen"><div class="section-head"><div><span class="eyebrow">LION CITY LEAGUE · V2.0</span><h2>School-Wide Rankings</h2><p>Clan rating changes after Clan Clashes. Player mastery rankings reflect training progress and never drop because of a battle loss.</p></div></div><div class="ranking-tabs"><button class="primary active" id="clanRankTab">Clans</button><button class="secondary" id="playerRankTab">Top Scholars</button></div><div id="clanRankingPanel" class="ranking-card fantasy-panel"><div class="rank-head"><span>Rank</span><span>Clan</span><span>Region</span><span>Rating</span></div><div id="rankingList"></div></div><div id="playerRankingPanel" class="ranking-card fantasy-panel hidden"><div class="rank-head player-rank-head"><span>Rank</span><span>Player</span><span>Class</span><span>Mastery</span></div><div id="playerRankingList"></div></div></section>
+
+      <section id="screen-chat" class="screen">
+        <div class="section-head"><div><span class="eyebrow">SCHOOL-SAFE CHAT · V2.1</span><h2>MathClans Channels</h2><p>Use the Main Channel for the school community or your private Clan Channel. Inappropriate language is rejected before posting.</p></div></div>
+        <div class="chat-shell fantasy-panel">
+          <div class="chat-channel-bar"><button class="primary active" id="chatMainTab">🌐 Main</button><button class="secondary" id="chatClanTab">🏰 Clan</button><span id="chatStatus">Sign in to load chat.</span></div>
+          <div id="chatMessages" class="chat-messages"><div class="chat-empty">Open Chat after signing in.</div></div>
+          <form id="chatForm" class="chat-form"><input id="chatInput" maxlength="240" autocomplete="off" placeholder="Write a respectful message…" aria-label="Chat message"><button class="primary" id="chatSendBtn" type="submit">Send</button></form>
+          <small class="chat-policy">School-safe chat · 240-character limit · vulgar/inappropriate language is blocked · messages can be reported to teachers.</small>
+        </div>
+      </section>
+
+      <section id="screen-ranking" class="screen"><div class="section-head"><div><span class="eyebrow">LION CITY LEAGUE · V2.1</span><h2>School-Wide Rankings</h2><p>Clan rating changes after Clan Clashes. Player mastery rankings reflect training progress and never drop because of a battle loss.</p></div></div><div class="ranking-tabs"><button class="primary active" id="clanRankTab">Clans</button><button class="secondary" id="playerRankTab">Top Scholars</button></div><div id="clanRankingPanel" class="ranking-card fantasy-panel"><div class="rank-head"><span>Rank</span><span>Clan</span><span>Region</span><span>Rating</span></div><div id="rankingList"></div></div><div id="playerRankingPanel" class="ranking-card fantasy-panel hidden"><div class="rank-head player-rank-head"><span>Rank</span><span>Player</span><span>Class</span><span>Mastery</span></div><div id="playerRankingList"></div></div></section>
     </main>
 
-    <nav class="bottom-nav"><button class="active" data-screen="map"><span>🗺</span>Map</button><button data-screen="train"><span>📚</span>Train</button><button data-screen="clan"><span>🏰</span>Clan</button><button data-screen="hero"><span>🐲</span>Hero</button><button data-screen="battle"><span>⚔</span>Battle</button><button data-screen="ranking"><span>🏆</span>Rank</button></nav>
+    <nav class="bottom-nav"><button class="active" data-screen="map"><span>🗺</span>Map</button><button data-screen="train"><span>📚</span>Train</button><button data-screen="clan"><span>🏰</span>Clan</button><button data-screen="hero"><span>🐲</span>Hero</button><button data-screen="battle"><span>⚔</span>Battle</button><button data-screen="chat"><span>💬</span>Chat</button><button data-screen="ranking"><span>🏆</span>Rank</button></nav>
   </div>
   <div id="modalBackdrop" class="modal-backdrop hidden"><div class="modal fantasy-panel" id="modal"></div></div>
-  <script src="app.js?v=2.0.0"></script>
+  <script src="app.js?v=2.1.0"></script>
   <!-- Firebase compat SDKs: keep these before firebase-config.js and online.js -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=1.6.0"></script>
-  <script src="online.js?v=2.0.0"></script>
-  <script src="clans.js?v=2.0.0"></script>
-  <script src="admin.js?v=2.0.0"></script>
+  <script src="online.js?v=2.1.0"></script>
+  <script src="clans.js?v=2.1.0"></script>
+  <script src="admin.js?v=2.1.0"></script>
+  <script src="chat.js?v=2.1.0"></script>
 </body>
 </html>
