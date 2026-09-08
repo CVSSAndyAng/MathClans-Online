@@ -9,7 +9,7 @@ const SKILLS={
  trigonometry:{name:'Trigonometry',icon:'🎯',color:'#60e9ff',trait:'Precision',desc:'Trig ratios, Pythagoras, sine rule, cosine rule & triangle area'},
  statistics:{name:'Statistics',icon:'📊',color:'#b18cff',trait:'Tactics',desc:'Averages, probability, quartiles, SD & data displays'}
 };
-const defaultState={player:{name:'Player One',avatar:'🐲',level:1,xp:0,crystals:250,clanId:null,clanRole:null},clan:{name:'Merlion Scholars',guardian:'🐉',region:'Central',rating:1500,influence:18,memberCount:10},skills:{algebra:8,geometry:7,trigonometry:6,statistics:7},history:[],streak:0,training:{skills:{}}};
+const defaultState={player:{name:'Player One',avatar:'🐲',level:1,xp:0,crystals:250,clanId:null,clanRole:null},clan:{name:'Merlion Scholars',guardian:'🐉',region:'Central',rating:1500,influence:18,memberCount:0},skills:{algebra:8,geometry:7,trigonometry:6,statistics:7},history:[],streak:0,training:{skills:{}}};
 let state=JSON.parse(localStorage.getItem('mathclans-v1')||'null')||structuredClone(defaultState);
 function ensureTrainingState(){
  state.training=state.training||{skills:{}};state.training.skills=state.training.skills||{};
@@ -27,18 +27,8 @@ const rivals=[
 const RIVAL_COORDS=[{x:1110,y:505,region:'Tampines'},{x:355,y:675,region:'Jurong'},{x:930,y:360,region:'Punggol'},{x:1010,y:600,region:'Bedok'}];
 const HOME_COORD={x:790,y:674};
 let marching=false;
-const members=[
- {name:'Ari',avatar:'🐲',role:'algebra',status:'ready',skills:{algebra:78,geometry:42,trigonometry:58,statistics:51}},
- {name:'Mei',avatar:'🐰',role:'trigonometry',status:'ready',skills:{algebra:49,geometry:55,trigonometry:84,statistics:57}},
- {name:'Zane',avatar:'🦊',role:'statistics',status:'training',skills:{algebra:54,geometry:48,trigonometry:64,statistics:81}},
- {name:'Nora',avatar:'🐼',role:'geometry',status:'ready',skills:{algebra:52,geometry:87,trigonometry:43,statistics:61}},
- {name:'Kai',avatar:'🤖',role:'algebra',status:'ready',skills:{algebra:82,geometry:58,trigonometry:61,statistics:44}},
- {name:'Lina',avatar:'🐧',role:'statistics',status:'online',skills:{algebra:51,geometry:66,trigonometry:47,statistics:79}},
- {name:'Theo',avatar:'🦖',role:'geometry',status:'ready',skills:{algebra:63,geometry:77,trigonometry:52,statistics:48}},
- {name:'Sora',avatar:'🐱',role:'trigonometry',status:'online',skills:{algebra:47,geometry:55,trigonometry:80,statistics:65}},
- {name:'Ben',avatar:'🐶',role:'algebra',status:'offline',skills:{algebra:74,geometry:49,trigonometry:51,statistics:56}},
- {name:'Ivy',avatar:'🦄',role:'geometry',status:'ready',skills:{algebra:55,geometry:75,trigonometry:65,statistics:60}}
-];
+const members=[];
+
 const STATUS_META={ready:{label:'WAR READY',icon:'⚔',online:true,selectable:true},online:{label:'ONLINE',icon:'🟢',online:true,selectable:true},training:{label:'TRAINING',icon:'📚',online:true,selectable:true},deployed:{label:'DEPLOYED',icon:'🔵',online:true,selectable:false},offline:{label:'OFFLINE',icon:'⚪',online:false,selectable:false}};
 const FORMATIONS={
  balanced:{name:'Balanced',icon:'⚖',desc:'Steady all-round formation.',mods:{algebra:1,geometry:1,trigonometry:1,statistics:1}},
