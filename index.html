@@ -129,20 +129,21 @@
         <div class="mental-console fantasy-panel"><div class="mental-meta"><span>MENTAL SUM CHAIN</span><span>Team <b id="battleTeamSize">1v1</b></span><span>Formation <b id="battleFormation">Balanced</b></span><span>Accuracy <b id="battleAccuracy">100%</b></span><span>My Avg <b id="battleMyAvg">0</b></span><span>Team Avg <b id="battleTeamAvg">0</b></span><span>Opp Avg <b id="battleOpponentAvg">0</b></span><span>Combo <b id="battleCombo">0</b></span></div><div class="mental-question" id="mentalQuestion">18 + 27</div><form id="mentalForm"><input id="mentalAnswer" inputmode="numeric" enterkeyhint="go" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Answer" aria-label="Mental sum answer" /><button class="primary" id="strikeBtn" type="submit">Strike</button></form><div class="skill-runes" id="battleSkillRunes"></div></div>
       </section>
 
-      <section id="screen-ranking" class="screen"><div class="section-head"><div><span class="eyebrow">LION CITY LEAGUE</span><h2>Clan Rankings</h2><p>Rating moves up and down after Clan Clashes. Mathematical mastery never drops from losing a battle.</p></div></div><div class="ranking-card fantasy-panel"><div class="rank-head"><span>Rank</span><span>Clan</span><span>Region</span><span>Rating</span></div><div id="rankingList"></div></div></section>
+      <section id="screen-ranking" class="screen"><div class="section-head"><div><span class="eyebrow">LION CITY LEAGUE · V2.0</span><h2>School-Wide Rankings</h2><p>Clan rating changes after Clan Clashes. Player mastery rankings reflect training progress and never drop because of a battle loss.</p></div></div><div class="ranking-tabs"><button class="primary active" id="clanRankTab">Clans</button><button class="secondary" id="playerRankTab">Top Scholars</button></div><div id="clanRankingPanel" class="ranking-card fantasy-panel"><div class="rank-head"><span>Rank</span><span>Clan</span><span>Region</span><span>Rating</span></div><div id="rankingList"></div></div><div id="playerRankingPanel" class="ranking-card fantasy-panel hidden"><div class="rank-head player-rank-head"><span>Rank</span><span>Player</span><span>Class</span><span>Mastery</span></div><div id="playerRankingList"></div></div></section>
     </main>
 
     <nav class="bottom-nav"><button class="active" data-screen="map"><span>🗺</span>Map</button><button data-screen="train"><span>📚</span>Train</button><button data-screen="clan"><span>🏰</span>Clan</button><button data-screen="hero"><span>🐲</span>Hero</button><button data-screen="battle"><span>⚔</span>Battle</button><button data-screen="ranking"><span>🏆</span>Rank</button></nav>
   </div>
   <div id="modalBackdrop" class="modal-backdrop hidden"><div class="modal fantasy-panel" id="modal"></div></div>
-  <script src="app.js?v=1.9.0"></script>
+  <script src="app.js?v=2.0.0"></script>
   <!-- Firebase compat SDKs: keep these before firebase-config.js and online.js -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=1.6.0"></script>
-  <script src="online.js?v=1.9.0"></script>
-  <script src="clans.js?v=1.9.0"></script>
+  <script src="online.js?v=2.0.0"></script>
+  <script src="clans.js?v=2.0.0"></script>
+  <script src="admin.js?v=2.0.0"></script>
 </body>
 </html>

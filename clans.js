@@ -32,7 +32,7 @@ async function createClan(){
 }
 async function openBrowse(){
  if(!user)return;showModal('<span class="eyebrow">CLAN DIRECTORY</span><h3>Online Clans</h3><div id="cloudClanList">Loading…</div><div class="modal-actions"><button class="secondary" onclick="closeModal()">Close</button></div>');
- try{const snap=await db.collection('clans').orderBy('createdAt','desc').limit(30).get();const list=$('#cloudClanList');if(snap.empty){list.innerHTML='<p>No clans yet. Be the first to create one.</p>';return}list.innerHTML=snap.docs.map(d=>{const x=d.data();return `<div class="cloud-clan-row"><span class="cloud-clan-crest">${x.guardian||'🐉'}</span><div><strong>${esc(x.name)}</strong><small>${esc(x.region)} · ${x.memberCount||0}/30 · Rating ${x.rating||1500}</small></div>${state.player.clanId===d.id?'<b>YOUR CLAN</b>':state.player.clanId?'':'<button class="secondary join-cloud-clan" data-id="'+d.id+'">Join</button>'}</div>`}).join('');document.querySelectorAll('.join-cloud-clan').forEach(b=>b.onclick=()=>joinClan(b.dataset.id));}catch(e){console.error(e);$('#cloudClanList').innerHTML='<p>Could not load clans. Check Firestore indexes/rules.</p>'}
+ try{const snap=await db.collection('clans').orderBy('createdAt','desc').limit(30).get();const list=$('#cloudClanList');if(snap.empty){list.innerHTML='<p>No clans yet. Be the first to create one.</p>';return}list.innerHTML=snap.docs.map(d=>{const x=d.data();return `<div class="cloud-clan-row"><span class="cloud-clan-crest">${x.guardian||'🐉'}</span><div><strong>${esc(x.name)}</strong><small>${esc(x.region)} · ${x.memberCount||0}/30 · Rating ${x.rating||1500}</small></div>${state.player.clanId===d.id?'<b>YOUR CLAN</b>':state.player.clanId?'':'<button class="secondary join-cloud-clan" data-id="'+d.id+'">Join</button>'}<button class="secondary report-cloud-clan" data-id="${d.id}" data-name="${esc(x.name)}">🚩</button></div>`}).join('');document.querySelectorAll('.join-cloud-clan').forEach(b=>b.onclick=()=>joinClan(b.dataset.id));document.querySelectorAll('.report-cloud-clan').forEach(b=>b.onclick=()=>window.MathClansAdmin?.report?.('clan',b.dataset.id,b.dataset.name));}catch(e){console.error(e);$('#cloudClanList').innerHTML='<p>Could not load clans. Check Firestore indexes/rules.</p>'}
 }
 async function joinClan(id){if(!user||state.player.clanId)return;const cref=db.collection('clans').doc(id),mref=cref.collection('members').doc(user.uid),pref=db.collection('players').doc(user.uid);
  try{await db.runTransaction(async tx=>{const cs=await tx.get(cref);if(!cs.exists)throw new Error('Clan no longer exists.');const c=cs.data();if((c.memberCount||0)>=30)throw new Error('Clan is full (30/30).');tx.set(mref,{uid:user.uid,role:'member',displayName:state.player.name,avatar:state.player.avatar,joinedAt:firebase.firestore.FieldValue.serverTimestamp()});tx.update(cref,{memberCount:(c.memberCount||0)+1});tx.set(pref,{clanId:id,clanRole:'member',updatedAtMs:Date.now()},{merge:true});});state.player.clanId=id;state.player.clanRole='member';save();closeModal();await loadClan(id);gameToast('🤝 Joined online clan.')}catch(e){console.error(e);gameToast(e.message||'Could not join clan.')}
@@ -112,13 +112,26 @@ function startRealtime(){if(presenceUnsub)presenceUnsub();if(readyUnsub)readyUns
 function stopWatchers(){if(memberUnsub)memberUnsub();if(presenceUnsub)presenceUnsub();if(readyUnsub)readyUnsub();if(inviteUnsub)inviteUnsub();if(battleUnsub)battleUnsub();if(challengeUnsub)challengeUnsub();memberUnsub=presenceUnsub=readyUnsub=inviteUnsub=battleUnsub=challengeUnsub=null;profiles.clear();activeBattleId=null}
 async function loadClan(id){stopWatchers();if(!id){clan=null;updatePanel();return}try{const ref=db.collection('clans').doc(id),snap=await ref.get();if(!snap.exists){state.player.clanId=null;state.player.clanRole=null;save();clan=null;updatePanel();return}clan={id:snap.id,...snap.data()};window.MathClansGame?.setClan?.(clan);updatePanel();memberUnsub=ref.collection('members').onSnapshot(ms=>{memberRows=ms.docs.map(d=>d.data());const mine=memberRows.find(m=>m.uid===user?.uid);if(mine?.role&&state.player.clanRole!==mine.role){state.player.clanRole=mine.role;save();window.MathClansGame?.setPlayerClan?.(clan.id,mine.role)}clan.memberCount=memberRows.length;updatePanel();rebuildRoster()},e=>console.warn('clan members',e));startRealtime();watchRallyInvites();watchIncomingChallenges();watchActiveBattles();refreshClanRanking()}catch(e){console.error(e);status.textContent='Could not load online clan';hint.textContent='Check Firestore rules and connection.'}}
 
-// ===== V1.8 real ranking + clan-vs-clan war lobby =====
+// ===== V2.0 school-wide rankings + real clan war lobby =====
+
+let lastPlayerRankingAt=0;
+async function refreshPlayerRanking(force=false){
+ if(!db)return;
+ if(!force&&Date.now()-lastPlayerRankingAt<60000)return;
+ lastPlayerRankingAt=Date.now();
+ try{
+   const snap=await db.collection('players').orderBy('totalSkill','desc').limit(100).get();
+   const rows=snap.docs.map((d,i)=>{const x=d.data()||{};return{uid:d.id,name:x.displayName||'Mathling',avatar:x.avatar||'🐲',schoolClass:x.schoolClass||'',yearLevel:x.yearLevel||'',totalSkill:Number(x.totalSkill||Object.values(x.skills||{}).reduce((a,b)=>a+Number(b||0),0)),rank:i+1,you:d.id===user?.uid}}).filter(x=>x.totalSkill>0);
+   window.MathClansGame?.setPlayerRankings?.(rows);
+ }catch(e){console.warn('Player ranking refresh failed',e)}
+}
+
 async function refreshClanRanking(){
  if(!db||!clan)return;
  try{
    const snap=await db.collection('clans').orderBy('rating','desc').limit(200).get();
    const rows=snap.docs.map((d,i)=>{const x=d.data()||{};return{id:d.id,name:x.name||'Clan',crest:x.guardian||'🐉',guardian:x.guardian||'🐉',region:x.region||'—',rating:Number(x.rating||1500),memberCount:Number(x.memberCount||0),rank:i+1,you:d.id===clan.id}});
-   const mine=rows.find(x=>x.id===clan.id);if(mine){clan.ranking=mine.rank;window.MathClansGame?.setClan?.({...clan,ranking:mine.rank})}window.MathClansGame?.setRankings?.(rows);
+   const mine=rows.find(x=>x.id===clan.id);if(mine){clan.ranking=mine.rank;window.MathClansGame?.setClan?.({...clan,ranking:mine.rank})}window.MathClansGame?.setRankings?.(rows);await refreshPlayerRanking();
  }catch(e){console.warn('Ranking refresh failed',e)}
 }
 async function getWarTargets(){
@@ -156,7 +169,7 @@ function showIncomingChallenge(id,d){
 async function activateChallenge(id,d,defenderTeam){
  const attacker=d.attacker||{},defender={clanId:clan.id,clanName:clan.name,guardian:clan.guardian||'🐉',region:clan.region,rating:Number(clan.rating||1500),formation:'balanced',callerUid:user.uid,participants:teamToParticipants(defenderTeam,'defender')};
  const allParticipants={...(attacker.participants||{}),...(defender.participants||{})},battleStartsAt=Date.now()+6000,endsAt=battleStartsAt+90000;
- const session={id,status:'deploying',challengeId:id,ownerUid:attacker.callerUid,participants:allParticipants,sides:{attacker,defender},battleStartsAt,startedAt:battleStartsAt,endsAt,scoreboard:{attacker:{hp:10000,teamAvg:0,accuracy:0,finalPower:0},defender:{hp:10000,teamAvg:0,accuracy:0,finalPower:0}},result:null};
+ const session={id,status:'deploying',challengeId:id,ownerUid:attacker.callerUid,creatorUid:user.uid,participants:allParticipants,sides:{attacker,defender},battleStartsAt,startedAt:battleStartsAt,endsAt,scoreboard:{attacker:{hp:10000,teamAvg:0,accuracy:0,finalPower:0},defender:{hp:10000,teamAvg:0,accuracy:0,finalPower:0}},result:null};
  const updates={};updates[`activeBattles/${id}`]=session;updates[`warChallenges/${id}/status`]='deploying';updates[`warChallenges/${id}/sessionId`]=id;updates[`clanWarInbox/${clan.id}/${id}`]=null;await rtdb.ref().update(updates);
  setTimeout(()=>rtdb.ref(`activeBattles/${id}`).update({status:'active'}).catch(()=>{}),6000);
 }
@@ -167,7 +180,7 @@ function showDeployment(sessionId,data){
 }
 
 function openSettings(){if(!clan||state.player.clanRole!=='leader'){gameToast('Only the clan leader can edit clan settings.');return}showModal(`<span class="eyebrow">ONLINE CLAN SETTINGS</span><h3>Edit ${esc(clan.name)}</h3><label>Clan name</label><input id="cloudClanName" maxlength="28" value="${esc(clan.name)}"><label>Region</label><select id="cloudClanRegion">${regions.map(x=>`<option ${x===clan.region?'selected':''}>${x}</option>`).join('')}</select><div class="modal-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="primary" id="saveCloudClan">Save</button></div>`);$('#saveCloudClan').onclick=async()=>{const name=$('#cloudClanName').value.trim();if(name.length<3)return;await db.collection('clans').doc(clan.id).update({name,nameLower:name.toLowerCase(),region:$('#cloudClanRegion').value});clan.name=name;clan.region=$('#cloudClanRegion').value;window.MathClansGame?.setClan?.(clan);closeModal();updatePanel()}}
-function initFirebase(){if(!window.MathClansOnline?.configured){updatePanel();return}auth=firebase.auth();db=firebase.firestore();rtdb=firebase.database();auth.onAuthStateChanged(async u=>{user=u||null;if(!user){stopWatchers();clan=null;updatePanel();return}const ps=await db.collection('players').doc(user.uid).get();const pd=ps.data()||{};if(pd.clanId){state.player.clanId=pd.clanId;state.player.clanRole=pd.clanRole||'member';save();await loadClan(pd.clanId)}else{clan=null;state.player.clanId=null;state.player.clanRole=null;save();updatePanel()}})}
-window.MathClansClans={isOnlineMode:onlineMode,isLiveClan:liveClan,openSettings,openBrowse,startRally,createBattleSession,reportBattleScore,markSharedParticipantLeft,finishBattleForPlayer,getWarTargets,createWarChallenge,refreshClanRanking,finalizeBattle};
+function initFirebase(){if(!window.MathClansOnline?.configured){updatePanel();return}auth=firebase.auth();db=firebase.firestore();rtdb=firebase.database();auth.onAuthStateChanged(async u=>{user=u||null;if(!user){stopWatchers();clan=null;updatePanel();return}const ps=await db.collection('players').doc(user.uid).get();const pd=ps.data()||{};if(pd.clanId){state.player.clanId=pd.clanId;state.player.clanRole=pd.clanRole||'member';save();await loadClan(pd.clanId)}else{clan=null;state.player.clanId=null;state.player.clanRole=null;save();updatePanel();await refreshPlayerRanking(true)}})}
+window.MathClansClans={isOnlineMode:onlineMode,isLiveClan:liveClan,openSettings,openBrowse,startRally,createBattleSession,reportBattleScore,markSharedParticipantLeft,finishBattleForPlayer,getWarTargets,createWarChallenge,refreshClanRanking,refreshPlayerRanking,finalizeBattle};
 setTimeout(initFirebase,0);
 })();

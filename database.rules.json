@@ -2,43 +2,23 @@
   "rules": {
     "presence": {
       ".read": "auth != null",
-      "$uid": {
-        ".write": "auth != null && auth.uid === $uid"
-      }
+      "$uid": { ".write": "auth != null && auth.uid === $uid" }
     },
     "warReady": {
       ".read": "auth != null",
-      "$uid": {
-        ".write": "auth != null && auth.uid === $uid"
-      }
+      "$uid": { ".write": "auth != null && auth.uid === $uid" }
     },
-    "warRallies": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "rallyInvites": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
+    "warRallies": { ".read": "auth != null", ".write": "auth != null" },
+    "rallyInvites": { ".read": "auth != null", ".write": "auth != null" },
+    "warChallenges": { ".read": "auth != null", ".write": "auth != null" },
+    "clanWarInbox": { ".read": "auth != null", ".write": "auth != null" },
     "activeBattles": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      "$battleId": {
+        ".write": "auth != null && ((!data.exists() && (newData.child('participants').child(auth.uid).exists() || newData.child('creatorUid').val() === auth.uid)) || data.child('participants').child(auth.uid).exists())"
+      }
     },
-    "warChallenges": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "clanWarInbox": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "battleResultClaims": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "battleHistoryClaims": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    }
+    "battleResultClaims": { ".read": "auth != null", ".write": "auth != null" },
+    "battleHistoryClaims": { ".read": "auth != null", ".write": "auth != null" }
   }
 }
