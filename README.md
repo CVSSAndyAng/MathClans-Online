@@ -1,6 +1,6 @@
-# MathClans V2.1.2 — Clan Approval & School-Safe Chat
+# MathClans V2.1.3 — Clan Approval & School-Safe Chat
 
-V2.1.2 builds on the V2.0 school-wide release with leader-approved clan membership and school-safe Main/Clan chat, while preserving adaptive training, live multiplayer battles, rankings and administration.
+V2.1.3 builds on the V2.0 school-wide release with leader-approved clan membership and school-safe Main/Clan chat, while preserving adaptive training, live multiplayer battles, rankings and administration.
 
 ## New in V2.0
 
@@ -85,7 +85,7 @@ This build substantially tightens Firebase rules, but live battle result calcula
 
 ---
 
-## V2.1.2 — Clan Membership Approval & School-Safe Chat
+## V2.1.3 — Clan Membership Approval & School-Safe Chat
 
 ### Clan membership
 - Students now **Request to Join** instead of joining immediately.
@@ -105,18 +105,23 @@ This build substantially tightens Firebase rules, but live battle result calcula
 - Basic 2-second anti-spam send delay is included in the game client.
 
 ### Important production note
-The V2.1.2 language filter is suitable for the school beta client, but a public/commercial release should move language moderation and rate-limiting to trusted server-side Cloud Functions or another moderation service so modified clients cannot bypass it.
+The V2.1.3 language filter is suitable for the school beta client, but a public/commercial release should move language moderation and rate-limiting to trusted server-side Cloud Functions or another moderation service so modified clients cannot bypass it.
 
 
-## V2.1.2 hotfix
+## V2.1.3 hotfix
 - Accepted applicants are pushed into the live member roster immediately.
 - A signed-in applicant now watches their player membership document, so clan acceptance appears without requiring a page refresh.
 - Players can edit or delete only chat messages that they themselves sent.
 - Edited chat messages are rechecked by the school-safe language filter and display an `edited` marker.
 
 
-## V2.1.2 roster/acceptance fix
+## V2.1.3 roster/acceptance fix
 
 - Removed the 10 placeholder/demo members from the live War Roster. The roster now starts empty and is populated only from the clan's real Firestore `members` subcollection.
 - Fixed the `roleFromSkills is not defined` runtime error that occurred after a leader accepted an applicant.
 - After acceptance, the live member snapshot rebuilds the War Roster using the new member's real profile and presence.
+
+
+## V2.1.3 defender roster selection
+
+The defending clan now mirrors the attacker flow. When a challenge arrives, the defending clan first chooses any 1–10 currently available members, then sends the normal 20-second voluntary rally only to those selected players. The defender does not need to match the attacker's team size. Only members who accept are deployed.

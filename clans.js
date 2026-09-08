@@ -1,4 +1,4 @@
-/* MathClans V2.1.2 live multiplayer clans + leader-approved membership */
+/* MathClans V2.1.3 live multiplayer clans + leader-approved membership */
 (() => {
 'use strict';
 const $=q=>document.querySelector(q);
@@ -38,7 +38,7 @@ async function createClan(){
  try{await batch.commit();state.player.clanId=ref.id;state.player.clanRole='leader';save();closeModal();await loadClan(ref.id);gameToast('🏰 Online clan created.')}catch(e){console.error(e);gameToast('Could not create clan. Check Firestore rules.')}
 }
 async function openBrowse(){
- if(!user)return;showModal('<span class="eyebrow">CLAN DIRECTORY · V2.1.2</span><h3>Online Clans</h3><p>Joining is by application. The clan leader decides whether to accept a new member.</p><div id="cloudClanList">Loading…</div><div class="modal-actions"><button class="secondary" onclick="closeModal()">Close</button></div>');
+ if(!user)return;showModal('<span class="eyebrow">CLAN DIRECTORY · V2.1.3</span><h3>Online Clans</h3><p>Joining is by application. The clan leader decides whether to accept a new member.</p><div id="cloudClanList">Loading…</div><div class="modal-actions"><button class="secondary" onclick="closeModal()">Close</button></div>');
  try{
    const snap=await db.collection('clans').orderBy('createdAt','desc').limit(30).get(),requestStates={};
    if(!state.player.clanId){await Promise.all(snap.docs.map(async d=>{try{const r=await d.ref.collection('joinRequests').doc(user.uid).get();if(r.exists)requestStates[d.id]=r.data()?.status||'pending'}catch(e){}}))}
@@ -48,7 +48,7 @@ async function openBrowse(){
  }catch(e){console.error(e);$('#cloudClanList').innerHTML='<p>Could not load clans. Check Firestore rules.</p>'}
 }
 async function requestJoinClan(id){if(!user||state.player.clanId)return;try{const cref=db.collection('clans').doc(id),cs=await cref.get();if(!cs.exists)throw new Error('Clan no longer exists.');const c=cs.data()||{};if(Number(c.memberCount||0)>=30)throw new Error('Clan is full (30/30).');await cref.collection('joinRequests').doc(user.uid).set({uid:user.uid,displayName:state.player.name,avatar:state.player.avatar,status:'pending',requestedAtMs:Date.now(),requestedAt:firebase.firestore.FieldValue.serverTimestamp()});gameToast('📨 Join request sent to the clan leader.');openBrowse()}catch(e){console.error(e);gameToast(e.message||'Could not send join request.')}}
-async function openApplications(){if(!user||!clan||state.player.clanRole!=='leader')return;showModal('<span class="eyebrow">CLAN APPLICATIONS · V2.1.2</span><h3>Pending applications</h3><p>You may accept or reject new applicants. Existing members cannot be removed by the clan leader.</p><div id="clanApplicationList">Loading…</div><div class="modal-actions"><button class="secondary" onclick="closeModal()">Close</button></div>');try{const s=await db.collection('clans').doc(clan.id).collection('joinRequests').where('status','==','pending').limit(50).get(),box=$('#clanApplicationList');box.innerHTML=s.empty?'<p>No pending applications.</p>':s.docs.map(d=>{const x=d.data()||{};return `<div class="cloud-clan-row"><span class="cloud-clan-crest">${x.avatar||'🐲'}</span><div><strong>${esc(x.displayName||'Mathling')}</strong><small>Requested to join your clan</small></div><button class="primary accept-clan-app" data-id="${d.id}">Accept</button><button class="secondary reject-clan-app" data-id="${d.id}">Reject</button></div>`}).join('');box.querySelectorAll('.accept-clan-app').forEach(b=>b.onclick=()=>acceptApplication(b.dataset.id));box.querySelectorAll('.reject-clan-app').forEach(b=>b.onclick=()=>rejectApplication(b.dataset.id));}catch(e){console.error(e);$('#clanApplicationList').innerHTML='<p>Could not load applications.</p>'}}
+async function openApplications(){if(!user||!clan||state.player.clanRole!=='leader')return;showModal('<span class="eyebrow">CLAN APPLICATIONS · V2.1.3</span><h3>Pending applications</h3><p>You may accept or reject new applicants. Existing members cannot be removed by the clan leader.</p><div id="clanApplicationList">Loading…</div><div class="modal-actions"><button class="secondary" onclick="closeModal()">Close</button></div>');try{const s=await db.collection('clans').doc(clan.id).collection('joinRequests').where('status','==','pending').limit(50).get(),box=$('#clanApplicationList');box.innerHTML=s.empty?'<p>No pending applications.</p>':s.docs.map(d=>{const x=d.data()||{};return `<div class="cloud-clan-row"><span class="cloud-clan-crest">${x.avatar||'🐲'}</span><div><strong>${esc(x.displayName||'Mathling')}</strong><small>Requested to join your clan</small></div><button class="primary accept-clan-app" data-id="${d.id}">Accept</button><button class="secondary reject-clan-app" data-id="${d.id}">Reject</button></div>`}).join('');box.querySelectorAll('.accept-clan-app').forEach(b=>b.onclick=()=>acceptApplication(b.dataset.id));box.querySelectorAll('.reject-clan-app').forEach(b=>b.onclick=()=>rejectApplication(b.dataset.id));}catch(e){console.error(e);$('#clanApplicationList').innerHTML='<p>Could not load applications.</p>'}}
 async function acceptApplication(uid){if(!user||!clan||state.player.clanRole!=='leader')return;const cref=db.collection('clans').doc(clan.id),rref=cref.collection('joinRequests').doc(uid),mref=cref.collection('members').doc(uid),pref=db.collection('players').doc(uid);try{await db.runTransaction(async tx=>{const [cs,rs,ps]=await Promise.all([tx.get(cref),tx.get(rref),tx.get(pref)]);if(!cs.exists||!rs.exists)throw new Error('Application no longer exists.');const c=cs.data()||{},r=rs.data()||{},p=ps.data()||{};if(r.status!=='pending')throw new Error('Application already handled.');if(Number(c.memberCount||0)>=30)throw new Error('Clan is full (30/30).');if(p.clanId)throw new Error('Applicant has already joined another clan.');tx.set(mref,{uid,role:'member',displayName:r.displayName||p.displayName||'Mathling',avatar:r.avatar||p.avatar||'🐲',joinedAt:firebase.firestore.FieldValue.serverTimestamp()});tx.update(cref,{memberCount:Number(c.memberCount||0)+1});tx.set(pref,{clanId:clan.id,clanRole:'member',updatedAtMs:Date.now()},{merge:true});tx.delete(rref)});profiles.delete(uid);const ms=await cref.collection('members').get();memberRows=ms.docs.map(d=>d.data());clan.memberCount=memberRows.length;updatePanel();await rebuildRoster();gameToast('✅ Applicant accepted. Member roster updated.');openApplications()}catch(e){console.error(e);gameToast(e.message||'Could not accept applicant.')}}
 async function rejectApplication(uid){if(!user||!clan||state.player.clanRole!=='leader')return;try{await db.collection('clans').doc(clan.id).collection('joinRequests').doc(uid).set({status:'rejected',decidedAtMs:Date.now(),decidedBy:user.uid},{merge:true});gameToast('Application rejected.');openApplications()}catch(e){console.error(e);gameToast('Could not reject application.')}}
 async function leaveClan(){
@@ -174,11 +174,41 @@ function watchIncomingChallenges(){
  const handler=async s=>{const all=s.val()||{},now=Date.now();const entries=Object.entries(all).filter(([,v])=>v&&Number(v.expiresAt||0)>now);if(!entries.length)return;const [id]=entries[0];if(activeChallengeId===id)return;const snap=await rtdb.ref(`warChallenges/${id}`).once('value'),d=snap.val();if(!d||d.status!=='awaiting_defender')return;activeChallengeId=id;showIncomingChallenge(id,d)};
  ref.on('value',handler);challengeUnsub=()=>ref.off('value',handler);
 }
+function availableDefenders(){
+ return (window.MathClansGame?.localMembers||[])
+  .map((m,idx)=>({idx,...m}))
+  .filter(m=>m.uid&&m.status!=='offline'&&m.status!=='deployed');
+}
+function showDefenderSelection(id,d){
+ const roster=availableDefenders();
+ if(!roster.length){gameToast('No online defenders are available.');return}
+ const attackerCount=Object.keys(d.attacker?.participants||{}).length;
+ const chosen=new Set();
+ const render=()=>{
+  const rows=roster.map((m,i)=>`<label class="defender-pick-row ${chosen.has(i)?'selected':''}"><input type="checkbox" data-def-pick="${i}" ${chosen.has(i)?'checked':''}><span class="defender-pick-avatar">${m.avatar||'🐲'}</span><span class="defender-pick-info"><b>${esc(m.name||'Mathling')}</b><small>${esc((m.role||m.specialty||'Member').toString())} · ${esc((m.status||'online').toString())}</small></span><span class="defender-pick-state">${chosen.has(i)?'SELECTED':'AVAILABLE'}</span></label>`).join('');
+  showModal(`<span class="eyebrow">🛡 DEFENDER ROSTER</span><h3>Choose defenders for ${esc(clan.name)}</h3><p>The attacker has <b>${attackerCount}</b> rallied player${attackerCount===1?'':'s'}. You may choose <b>any 1–10 available members</b>; you do not need to match the attacker's team size.</p><div class="defender-select-summary"><b id="defenderSelectedCount">${chosen.size}/10 selected</b><span>Each selected player must still accept the 20-second rally.</span></div><div class="defender-pick-list">${rows}</div><div class="defender-select-tools"><button class="secondary" id="defSelectAll">Select up to 10</button><button class="secondary" id="defClearAll">Clear</button></div><div class="modal-actions"><button class="secondary" id="defBackBtn">Back</button><button class="primary" id="defStartRally" ${chosen.size?'':'disabled'}>Rally Selected (${chosen.size})</button></div>`);
+  document.querySelectorAll('[data-def-pick]').forEach(cb=>{cb.onchange=()=>{const i=Number(cb.dataset.defPick);if(cb.checked){if(chosen.size>=10){cb.checked=false;gameToast('Maximum 10 defenders.');return}chosen.add(i)}else chosen.delete(i);render()}});
+  $('#defSelectAll').onclick=()=>{chosen.clear();for(let i=0;i<Math.min(10,roster.length);i++)chosen.add(i);render()};
+  $('#defClearAll').onclick=()=>{chosen.clear();render()};
+  $('#defBackBtn').onclick=()=>showIncomingChallenge(id,d);
+  const go=$('#defStartRally');if(go)go.onclick=async()=>{
+   const selected=[...chosen].sort((a,b)=>a-b).map(i=>roster[i]).filter(Boolean).slice(0,10);
+   if(!selected.length){gameToast('Select at least one defender.');return}
+   closeModal();
+   startRally(selected,id,async result=>{
+    const defenders=result?.entries||[];
+    if(!defenders.length){await rtdb.ref(`warChallenges/${id}`).update({status:'rejected',reason:'no_defenders'});activeChallengeId=null;return}
+    await activateChallenge(id,d,defenders);activeChallengeId=null
+   });
+  };
+ };
+ render();
+}
 function showIncomingChallenge(id,d){
  const remain=Math.max(0,Math.ceil((Number(d.expiresAt||0)-Date.now())/1000));if(remain<=0){activeChallengeId=null;return}
- showModal(`<span class="eyebrow">⚔ INCOMING CLAN CHALLENGE</span><h3>${esc(d.attacker?.clanName||'A rival clan')} challenges ${esc(clan.name)}</h3><p>${Object.keys(d.attacker?.participants||{}).length} attacking member${Object.keys(d.attacker?.participants||{}).length===1?'':'s'} are rallied. Accepting starts a 20-second voluntary defence rally for your online clan members.</p><div class="war-lobby-status"><div class="war-lobby-side"><span class="crest">${d.attacker?.guardian||'⚔'}</span><div><strong>${esc(d.attacker?.clanName||'Rival')}</strong><small>Rating ${d.attacker?.rating||1500}</small></div><b>ATTACK</b></div></div><div class="modal-actions"><button class="secondary" id="rejectWarChallenge">Reject</button><button class="primary" id="defendWarChallenge">Defend & Rally</button></div>`);
+ showModal(`<span class="eyebrow">⚔ INCOMING CLAN CHALLENGE</span><h3>${esc(d.attacker?.clanName||'A rival clan')} challenges ${esc(clan.name)}</h3><p>${Object.keys(d.attacker?.participants||{}).length} attacking member${Object.keys(d.attacker?.participants||{}).length===1?'':'s'} are rallied. Choose your own 1–10 defenders, then send them a 20-second voluntary rally.</p><div class="war-lobby-status"><div class="war-lobby-side"><span class="crest">${d.attacker?.guardian||'⚔'}</span><div><strong>${esc(d.attacker?.clanName||'Rival')}</strong><small>Rating ${d.attacker?.rating||1500}</small></div><b>ATTACK</b></div></div><div class="modal-actions"><button class="secondary" id="rejectWarChallenge">Reject</button><button class="primary" id="defendWarChallenge">Choose Defenders</button></div>`);
  $('#rejectWarChallenge').onclick=async()=>{await rtdb.ref(`warChallenges/${id}`).update({status:'rejected',rejectedBy:user.uid});await rtdb.ref(`clanWarInbox/${clan.id}/${id}`).remove();activeChallengeId=null;closeModal()};
- $('#defendWarChallenge').onclick=async()=>{const roster=(window.MathClansGame?.localMembers||[]).map((m,idx)=>({idx,...m})).filter(m=>m.uid&&m.status!=='offline'&&m.status!=='deployed').slice(0,10);if(!roster.length){gameToast('No online defenders are available.');return}closeModal();startRally(roster,id,async result=>{const defenders=result?.entries||[];if(!defenders.length){await rtdb.ref(`warChallenges/${id}`).update({status:'rejected',reason:'no_defenders'});activeChallengeId=null;return}await activateChallenge(id,d,defenders);activeChallengeId=null})};
+ $('#defendWarChallenge').onclick=()=>showDefenderSelection(id,d);
 }
 async function activateChallenge(id,d,defenderTeam){
  const attacker=d.attacker||{},defender={clanId:clan.id,clanName:clan.name,guardian:clan.guardian||'🐉',region:clan.region,rating:Number(clan.rating||1500),formation:'balanced',callerUid:user.uid,participants:teamToParticipants(defenderTeam,'defender')};
