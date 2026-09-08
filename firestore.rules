@@ -13,6 +13,7 @@ service cloud.firestore {
       return signedIn() && (!p.keys().hasAny(['moderation']) || ((!p.moderation.keys().hasAny(['chatMuted']) || p.moderation.chatMuted != true) && (!p.moderation.keys().hasAny(['status']) || p.moderation.status != 'suspended')));
     }
     function validChat() { return request.resource.data.senderUid == request.auth.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 240; }
+    function validOwnChatEdit() { return signedIn() && resource.data.senderUid == request.auth.uid && request.resource.data.senderUid == resource.data.senderUid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','editedAtMs','editedAt']) && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 240; }
 
     match /admins/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || activeAdmin());
@@ -73,14 +74,16 @@ service cloud.firestore {
       match /chat/{messageId} {
         allow read: if activeAdmin() || clanMember(clanId);
         allow create: if clanMember(clanId) && chatAllowed() && validChat() && request.resource.data.channelType == 'clan' && request.resource.data.clanId == clanId;
-        allow update, delete: if false;
+        allow update: if validOwnChatEdit();
+        allow delete: if activeAdmin() || (signedIn() && resource.data.senderUid == request.auth.uid);
       }
     }
 
     match /chatMain/{messageId} {
       allow read: if signedIn();
       allow create: if chatAllowed() && validChat() && request.resource.data.channelType == 'main' && request.resource.data.clanId == null;
-      allow update, delete: if false;
+      allow update: if validOwnChatEdit();
+      allow delete: if activeAdmin() || (signedIn() && resource.data.senderUid == request.auth.uid);
     }
 
     match /battleHistory/{battleId} {
