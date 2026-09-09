@@ -1,6 +1,6 @@
-# MathClans V2.1.4 — Login Account Name Sync
+# MathClans V2.1.5 — Account-Bound Custom Profile Names
 
-V2.1.4 builds on V2.1.3 and makes each player profile name follow the currently signed-in Google/Firebase account while preserving clan approval, school-safe chat, adaptive training, live multiplayer battles, rankings and administration.
+V2.1.5 builds on V2.1.4 and restores player-chosen public profile names while binding each profile to the authenticated Firebase/Google account (UID). A player may change the public name, but signing in with a different email account loads a different MathClans profile. The email remains private.
 
 ## New in V2.0
 
@@ -127,10 +127,19 @@ The V2.1.3 language filter is suitable for the school beta client, but a public/
 The defending clan now mirrors the attacker flow. When a challenge arrives, the defending clan first chooses any 1–10 currently available members, then sends the normal 20-second voluntary rally only to those selected players. The defender does not need to match the attacker's team size. Only members who accept are deployed.
 
 
-## V2.1.4 — Login account profile-name sync
+## V2.1.5 — Account-bound custom profile names
 
 - The public MathClans player name now automatically follows the display name of the Google/Firebase account used to sign in.
 - A stale MathClans name from a different account or earlier local session can no longer override the signed-in account name.
 - On sign-in, the canonical account name is synced to `players/{uid}.displayName` and to the player's clan member document when applicable.
 - The Profile editor shows the account name as read-only; players may still choose avatar, class and year level.
 - Email remains private and is not used as the public name unless the authentication provider supplies no display name; in that rare case, only the email prefix is used as a fallback.
+
+
+### V2.1.5 profile identity rule
+- The Firebase Authentication UID is the permanent owner key for a MathClans profile.
+- A player may choose/change the public display name (2–30 characters).
+- The chosen name is stored in `players/{uid}.displayName`.
+- The signed-in email is stored only in `privateProfiles/{uid}` and is not used as the public name.
+- Switching Google accounts loads that account's own profile and chosen name.
+- Clan roster and realtime presence use the chosen account-bound public name.
