@@ -1,4 +1,4 @@
-/* MathClans V2.1 Clan Approval + School-Safe Chat
+/* MathClans V2.1.4 Account-Name Sync + Clan Approval + School-Safe Chat
    - Google/Firebase Authentication
    - persistent player profile in Firestore
    - Realtime Database presence
@@ -13,6 +13,13 @@
   const configured = Boolean(cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId && cfg.databaseURL);
   const allowedDomain = String(window.MATHCLANS_ALLOWED_EMAIL_DOMAIN || '').trim().toLowerCase();
   const esc = s => String(s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]||c));
+
+  function loginDisplayName() {
+    const googleName = String(user?.displayName || '').trim();
+    if (googleName) return googleName.slice(0, 40);
+    const emailLocal = String(user?.email || '').split('@')[0].trim();
+    return (emailLocal || 'Mathling').slice(0, 40);
+  }
 
   const ui = {
     btn: $o('#accountBtn'),
@@ -43,7 +50,7 @@
 
   function currentProgressPayload() {
     return {
-      displayName: state?.player?.name || user?.displayName || 'Mathling',
+      displayName: user ? loginDisplayName() : (state?.player?.name || 'Mathling'),
       avatar: state?.player?.avatar || '🐲',
       level: Number(state?.player?.level || 1),
       xp: Number(state?.player?.xp || 0),
@@ -62,7 +69,7 @@
 
   function applyCloudPlayer(data) {
     if (!data || !window.state) return;
-    if (data.displayName) state.player.name = data.displayName;
+    state.player.name = user ? loginDisplayName() : (data.displayName || state.player.name || 'Mathling');
     if (data.avatar) state.player.avatar = data.avatar;
     if (Number.isFinite(data.level)) state.player.level = data.level;
     if (Number.isFinite(data.xp)) state.player.xp = data.xp;
@@ -94,10 +101,13 @@
 
   async function ensurePlayerDoc() {
     const ref = db.collection('players').doc(user.uid);
+    const accountName = loginDisplayName();
+    state.player.name = accountName;
     const snap = await ref.get();
     if (!snap.exists) {
       const p = currentProgressPayload();
       p.uid = user.uid;
+      p.displayName = accountName;
       p.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       p.role = 'student';
       await ref.set(p, {merge: true});
@@ -108,8 +118,15 @@
       await db.collection('privateProfiles').doc(user.uid).set({uid:user.uid,email:user.email||data.email||'',updatedAtMs:Date.now()},{merge:true}).catch(()=>{});
       if(data.email){await ref.update({email:firebase.firestore.FieldValue.delete()}).catch(()=>{})}
       lastCloudStamp = Number(data.updatedAtMs || 0);
-      // On first sign-in, an existing cloud profile wins so the same account follows the user across devices.
-      applyCloudPlayer(data);
+      // MathClans V2.1.4: public player name always follows the signed-in Google/Firebase account.
+      applyCloudPlayer({...data, displayName: accountName});
+      if (data.displayName !== accountName) {
+        await ref.set({displayName:accountName,updatedAtMs:Date.now(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});
+      }
+      const linkedClanId = data.clanId || state?.player?.clanId || null;
+      if (linkedClanId) {
+        await db.collection('clans').doc(linkedClanId).collection('members').doc(user.uid).set({displayName:accountName},{merge:true}).catch(()=>{});
+      }
     }
   }
 
@@ -154,7 +171,7 @@
       presenceRef.set({
         state: 'online',
         activity: 'online',
-        displayName: state?.player?.name || user.displayName || 'Mathling',
+        displayName: loginDisplayName(),
         clanId: state?.player?.clanId || null,
       clanRole: state?.player?.clanRole || null,
         lastChanged: firebase.database.ServerValue.TIMESTAMP
@@ -165,7 +182,7 @@
       if (!user) return;
       presenceRef.update({
         state: document.hidden ? 'away' : 'online',
-        displayName: state?.player?.name || user.displayName || 'Mathling',
+        displayName: loginDisplayName(),
         clanId: state?.player?.clanId || null,
         activity: document.body?.dataset?.screen==='battle'?'battle':document.body?.dataset?.screen==='train'?'training':'online',
         lastChanged: firebase.database.ServerValue.TIMESTAMP
@@ -180,16 +197,16 @@
 
   async function setActivity(activity='online') {
     if(!user||!rtdb)return;
-    await rtdb.ref(`presence/${user.uid}`).update({state:'online',activity,displayName:state?.player?.name||user.displayName||'Mathling',clanId:state?.player?.clanId||null,lastChanged:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{});
+    await rtdb.ref(`presence/${user.uid}`).update({state:'online',activity,displayName:loginDisplayName(),clanId:state?.player?.clanId||null,lastChanged:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{});
   }
 
   function openProfileEditor(firstTime=false){
     if(!user)return;
     const avatars=['🐲','🦁','🐼','🦊','🦉','🐯','🐸','🐙','🦄','🐢','🦅','🐺'];
     const yr=state?.player?.yearLevel||'';
-    modal(`<span class="eyebrow">${firstTime?'CREATE YOUR MATHLING':'PLAYER PROFILE'}</span><h3>Choose your public identity</h3><p>Your Google email stays private. Other players see only your Mathling name, avatar and optional class.</p><label>Player name</label><input id="profileNameInput" maxlength="20" value="${esc(state?.player?.name==='Player One'?'':state?.player?.name||'')}" placeholder="e.g. AndyMath"><label>Avatar</label><div class="avatar-picker">${avatars.map(a=>`<button type="button" class="avatar-choice ${a===(state?.player?.avatar||'🐲')?'selected':''}" data-avatar="${a}">${a}</button>`).join('')}</div><label>Class (optional)</label><input id="profileClassInput" maxlength="20" value="${esc(state?.player?.schoolClass||'')}" placeholder="e.g. 2E1"><label>Year level (optional)</label><select id="profileYearInput"><option value="">Not shown</option>${['Sec 1','Sec 2','Sec 3','Sec 4','Sec 5'].map(x=>`<option ${yr===x?'selected':''}>${x}</option>`).join('')}</select><div class="modal-actions">${firstTime?'':'<button class="secondary" id="profileCancel">Cancel</button>'}<button class="primary" id="profileSave">Save Profile</button></div>`);
+    modal(`<span class="eyebrow">${firstTime?'CREATE YOUR MATHLING':'PLAYER PROFILE'}</span><h3>Your MathClans profile</h3><p>Your player name follows the Google account used to sign in. Your email stays private. You can choose only your avatar, class and year level.</p><label>Player name (from login account)</label><input id="profileNameInput" value="${esc(loginDisplayName())}" readonly><label>Avatar</label><div class="avatar-picker">${avatars.map(a=>`<button type="button" class="avatar-choice ${a===(state?.player?.avatar||'🐲')?'selected':''}" data-avatar="${a}">${a}</button>`).join('')}</div><label>Class (optional)</label><input id="profileClassInput" maxlength="20" value="${esc(state?.player?.schoolClass||'')}" placeholder="e.g. 2E1"><label>Year level (optional)</label><select id="profileYearInput"><option value="">Not shown</option>${['Sec 1','Sec 2','Sec 3','Sec 4','Sec 5'].map(x=>`<option ${yr===x?'selected':''}>${x}</option>`).join('')}</select><div class="modal-actions">${firstTime?'':'<button class="secondary" id="profileCancel">Cancel</button>'}<button class="primary" id="profileSave">Save Profile</button></div>`);
     let chosen=state?.player?.avatar||'🐲';
-    setTimeout(()=>{document.querySelectorAll('.avatar-choice').forEach(b=>b.onclick=()=>{chosen=b.dataset.avatar;document.querySelectorAll('.avatar-choice').forEach(x=>x.classList.toggle('selected',x===b))});const c=$o('#profileCancel');if(c)c.onclick=()=>closeModal();const s=$o('#profileSave');if(s)s.onclick=async()=>{const name=($o('#profileNameInput')?.value||'').trim();if(name.length<2){s.textContent='Name too short';return}const schoolClass=($o('#profileClassInput')?.value||'').trim(),yearLevel=$o('#profileYearInput')?.value||'';state.player.name=name;state.player.avatar=chosen;state.player.schoolClass=schoolClass;state.player.yearLevel=yearLevel;localStorage.setItem('mathclans-v1',JSON.stringify(state));await db.collection('players').doc(user.uid).set({displayName:name,avatar:chosen,schoolClass,yearLevel,totalSkill:Object.values(state.skills||{}).reduce((a,b)=>a+Number(b||0),0),updatedAtMs:Date.now(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});if(state.player.clanId){await db.collection('clans').doc(state.player.clanId).collection('members').doc(user.uid).set({displayName:name,avatar:chosen},{merge:true}).catch(()=>{})}await setActivity(document.body?.dataset?.screen==='battle'?'battle':'online');accountLabel(name,'online');if(typeof init==='function')init();closeModal();if(firstTime){const g=`mathclans-guide-v20-${user.uid}`;localStorage.setItem(g,'1');setTimeout(()=>window.MathClansGameHelp?.show?.(true),250)}};},0);
+    setTimeout(()=>{document.querySelectorAll('.avatar-choice').forEach(b=>b.onclick=()=>{chosen=b.dataset.avatar;document.querySelectorAll('.avatar-choice').forEach(x=>x.classList.toggle('selected',x===b))});const c=$o('#profileCancel');if(c)c.onclick=()=>closeModal();const s=$o('#profileSave');if(s)s.onclick=async()=>{const name=loginDisplayName();const schoolClass=($o('#profileClassInput')?.value||'').trim(),yearLevel=$o('#profileYearInput')?.value||'';state.player.name=name;state.player.avatar=chosen;state.player.schoolClass=schoolClass;state.player.yearLevel=yearLevel;localStorage.setItem('mathclans-v1',JSON.stringify(state));await db.collection('players').doc(user.uid).set({displayName:name,avatar:chosen,schoolClass,yearLevel,totalSkill:Object.values(state.skills||{}).reduce((a,b)=>a+Number(b||0),0),updatedAtMs:Date.now(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});if(state.player.clanId){await db.collection('clans').doc(state.player.clanId).collection('members').doc(user.uid).set({displayName:name,avatar:chosen},{merge:true}).catch(()=>{})}await setActivity(document.body?.dataset?.screen==='battle'?'battle':'online');accountLabel(name,'online');if(typeof init==='function')init();closeModal();if(firstTime){const g=`mathclans-guide-v20-${user.uid}`;localStorage.setItem(g,'1');setTimeout(()=>window.MathClansGameHelp?.show?.(true),250)}};},0);
   }
 
   async function signInGoogle() {
@@ -228,7 +245,7 @@
       setTimeout(() => { const b=$o('#googleSignInBtn'); if(b) b.onclick=signInGoogle; const c=$o('#accountCloseBtn'); if(c) c.onclick=()=>{ if (typeof closeModal === 'function') closeModal(); }; }, 0);
       return;
     }
-    modal(`<span class="eyebrow">ONLINE PLAYER · V2.1</span><h3>${state?.player?.name || user.displayName || 'Mathling'}</h3><div class="online-profile-card"><div class="online-avatar">${state?.player?.avatar || '🐲'}</div><div><b>${user.email || ''}</b><span>Cloud progress: connected</span><span>Presence: online</span>${state?.player?.schoolClass?`<span>Class: ${esc(state.player.schoolClass)}</span>`:''}</div></div><div class="modal-actions"><button class="secondary" id="accountCloseBtn">Close</button><button class="secondary" id="editProfileBtn">Edit Profile</button><button class="secondary" id="syncNowBtn">Sync Now</button>${isAdminUser?'<button class="secondary" id="adminCenterBtn">Admin Center</button>':''}<button class="primary" id="signOutBtn">Sign Out</button></div>`);
+    modal(`<span class="eyebrow">ONLINE PLAYER · V2.1</span><h3>${esc(loginDisplayName())}</h3><div class="online-profile-card"><div class="online-avatar">${state?.player?.avatar || '🐲'}</div><div><b>${user.email || ''}</b><span>Cloud progress: connected</span><span>Presence: online</span>${state?.player?.schoolClass?`<span>Class: ${esc(state.player.schoolClass)}</span>`:''}</div></div><div class="modal-actions"><button class="secondary" id="accountCloseBtn">Close</button><button class="secondary" id="editProfileBtn">Edit Profile</button><button class="secondary" id="syncNowBtn">Sync Now</button>${isAdminUser?'<button class="secondary" id="adminCenterBtn">Admin Center</button>':''}<button class="primary" id="signOutBtn">Sign Out</button></div>`);
     setTimeout(() => {
       const c=$o('#accountCloseBtn'); if(c) c.onclick=()=>{ if (typeof closeModal === 'function') closeModal(); };
       const e=$o('#editProfileBtn'); if(e)e.onclick=()=>openProfileEditor(false);
@@ -246,13 +263,13 @@
       if (syncTimer) { clearInterval(syncTimer); syncTimer=null; }
       return;
     }
-    accountLabel(state?.player?.name || user.displayName || 'Online', 'online');
+    accountLabel(loginDisplayName(), 'online');
     await ensurePlayerDoc();
     await checkAdmin();
-    accountLabel(state?.player?.name || user.displayName || 'Online', 'online');
+    accountLabel(loginDisplayName(), 'online');
     startProfileWatch();
     startPresence();
-    const needsProfile=!state?.player?.name||state.player.name==='Player One';
+    const needsProfile=false;
     const guideKey=`mathclans-guide-v20-${user.uid}`;
     if(needsProfile){setTimeout(()=>openProfileEditor(true),350);}
     else if(!localStorage.getItem(guideKey)){localStorage.setItem(guideKey,'1');setTimeout(()=>window.MathClansGameHelp?.show?.(true),450);}

@@ -1,6 +1,6 @@
-# MathClans V2.1.3 — Clan Approval & School-Safe Chat
+# MathClans V2.1.4 — Login Account Name Sync
 
-V2.1.3 builds on the V2.0 school-wide release with leader-approved clan membership and school-safe Main/Clan chat, while preserving adaptive training, live multiplayer battles, rankings and administration.
+V2.1.4 builds on V2.1.3 and makes each player profile name follow the currently signed-in Google/Firebase account while preserving clan approval, school-safe chat, adaptive training, live multiplayer battles, rankings and administration.
 
 ## New in V2.0
 
@@ -125,3 +125,12 @@ The V2.1.3 language filter is suitable for the school beta client, but a public/
 ## V2.1.3 defender roster selection
 
 The defending clan now mirrors the attacker flow. When a challenge arrives, the defending clan first chooses any 1–10 currently available members, then sends the normal 20-second voluntary rally only to those selected players. The defender does not need to match the attacker's team size. Only members who accept are deployed.
+
+
+## V2.1.4 — Login account profile-name sync
+
+- The public MathClans player name now automatically follows the display name of the Google/Firebase account used to sign in.
+- A stale MathClans name from a different account or earlier local session can no longer override the signed-in account name.
+- On sign-in, the canonical account name is synced to `players/{uid}.displayName` and to the player's clan member document when applicable.
+- The Profile editor shows the account name as read-only; players may still choose avatar, class and year level.
+- Email remains private and is not used as the public name unless the authentication provider supplies no display name; in that rare case, only the email prefix is used as a fallback.
