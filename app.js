@@ -10,13 +10,15 @@ const SKILLS={
  statistics:{name:'Statistics',icon:'📊',color:'#b18cff',trait:'Tactics',desc:'Averages, probability, quartiles, SD & data displays'}
 };
 const defaultState={player:{name:'Player One',avatar:'🐲',level:1,xp:0,crystals:250,clanId:null,clanRole:null},clan:{name:'Merlion Scholars',guardian:'🐉',region:'Central',rating:1500,influence:18,memberCount:0},skills:{algebra:8,geometry:7,trigonometry:6,statistics:7},history:[],streak:0,training:{skills:{}}};
-let state=JSON.parse(localStorage.getItem('mathclans-v1')||'null')||structuredClone(defaultState);
+const ACTIVE_UID_KEY='mathclans-active-uid';
+const scopedStateKey=()=>{const uid=localStorage.getItem(ACTIVE_UID_KEY);return uid?`mathclans-v1-${uid}`:'mathclans-v1';};
+let state=JSON.parse(localStorage.getItem(scopedStateKey())||'null')||structuredClone(defaultState);
 function ensureTrainingState(){
  state.training=state.training||{skills:{}};state.training.skills=state.training.skills||{};
  Object.keys(SKILLS).forEach(k=>{const t=state.training.skills[k]||{};state.training.skills[k]={confidence:Number.isFinite(t.confidence)?Math.max(30,Math.min(100,t.confidence)):85,wrongStreak:Number.isFinite(t.wrongStreak)?Math.max(0,t.wrongStreak):0,recent:Array.isArray(t.recent)?t.recent.slice(-7):[],remedial:!!t.remedial,questionHistory:Array.isArray(t.questionHistory)?t.questionHistory.slice(-80):[],subskills:(t.subskills&&typeof t.subskills==='object')?t.subskills:{}};});
 }
 ensureTrainingState();
-const save=()=>localStorage.setItem('mathclans-v1',JSON.stringify(state));
+const save=()=>localStorage.setItem(scopedStateKey(),JSON.stringify(state));
 
 const rivals=[
  {name:'Pi-Rates',crest:'🐙',region:'Tampines',rating:1548,skills:{algebra:62,geometry:70,trigonometry:48,statistics:74}},

@@ -1,4 +1,4 @@
-/* MathClans V2.1.5 Account-Bound Custom Profile Names + Clan Approval + School-Safe Chat
+/* MathClans V2.1.6 Strict Account-Bound Browser State + Custom Profile Names + Clan Approval + School-Safe Chat
    - Google/Firebase Authentication
    - persistent player profile in Firestore
    - Realtime Database presence
@@ -13,6 +13,29 @@
   const configured = Boolean(cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId && cfg.databaseURL);
   const allowedDomain = String(window.MATHCLANS_ALLOWED_EMAIL_DOMAIN || '').trim().toLowerCase();
   const esc = s => String(s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]||c));
+
+  const ACTIVE_UID_KEY = 'mathclans-active-uid';
+  const accountStateKey = uid => `mathclans-v1-${uid}`;
+
+  function resetStateForAccount(uid) {
+    const cached = localStorage.getItem(accountStateKey(uid));
+    if (cached) {
+      try {
+        state = JSON.parse(cached);
+        if (typeof ensureTrainingState === 'function') ensureTrainingState();
+        return;
+      } catch (e) {
+        console.warn('Could not read account-scoped MathClans cache:', e);
+      }
+    }
+    state = structuredClone(defaultState);
+    if (typeof ensureTrainingState === 'function') ensureTrainingState();
+  }
+
+  function persistAccountState() {
+    if (!user?.uid) return;
+    localStorage.setItem(accountStateKey(user.uid), JSON.stringify(state));
+  }
 
   function loginDisplayName() {
     const googleName = String(user?.displayName || '').trim();
@@ -86,7 +109,7 @@
     state.player.yearLevel = data.yearLevel || state.player.yearLevel || '';
     if(data.moderation?.status==='suspended') enforceSuspension(data.moderation);
     else suspended=false;
-    localStorage.setItem('mathclans-v1', JSON.stringify(state));
+    persistAccountState();
     if (typeof init === 'function') init();
   }
 
@@ -213,7 +236,7 @@
     const yr=state?.player?.yearLevel||'';
     modal(`<span class="eyebrow">${firstTime?'CREATE YOUR MATHLING':'PLAYER PROFILE'}</span><h3>Your MathClans profile</h3><p>Choose the public name other players will see. This profile is permanently tied to the Google account you signed in with; changing account loads that account's own MathClans profile. Your email remains private.</p><label>Public player name</label><input id="profileNameInput" maxlength="30" value="${esc(publicPlayerName())}" placeholder="Choose a player name"><small class="online-small">Signed-in account: ${esc(user.email||'')}</small><label>Avatar</label><div class="avatar-picker">${avatars.map(a=>`<button type="button" class="avatar-choice ${a===(state?.player?.avatar||'🐲')?'selected':''}" data-avatar="${a}">${a}</button>`).join('')}</div><label>Class (optional)</label><input id="profileClassInput" maxlength="20" value="${esc(state?.player?.schoolClass||'')}" placeholder="e.g. 2E1"><label>Year level (optional)</label><select id="profileYearInput"><option value="">Not shown</option>${['Sec 1','Sec 2','Sec 3','Sec 4','Sec 5'].map(x=>`<option ${yr===x?'selected':''}>${x}</option>`).join('')}</select><div class="modal-actions">${firstTime?'':'<button class="secondary" id="profileCancel">Cancel</button>'}<button class="primary" id="profileSave">Save Profile</button></div>`);
     let chosen=state?.player?.avatar||'🐲';
-    setTimeout(()=>{document.querySelectorAll('.avatar-choice').forEach(b=>b.onclick=()=>{chosen=b.dataset.avatar;document.querySelectorAll('.avatar-choice').forEach(x=>x.classList.toggle('selected',x===b))});const c=$o('#profileCancel');if(c)c.onclick=()=>closeModal();const s=$o('#profileSave');if(s)s.onclick=async()=>{const name=($o('#profileNameInput')?.value||'').trim().replace(/\s+/g,' ').slice(0,30);if(name.length<2){alert('Player name must contain at least 2 characters.');return;}const schoolClass=($o('#profileClassInput')?.value||'').trim(),yearLevel=$o('#profileYearInput')?.value||'';state.player.name=name;state.player.avatar=chosen;state.player.schoolClass=schoolClass;state.player.yearLevel=yearLevel;localStorage.setItem('mathclans-v1',JSON.stringify(state));await db.collection('players').doc(user.uid).set({displayName:name,avatar:chosen,schoolClass,yearLevel,totalSkill:Object.values(state.skills||{}).reduce((a,b)=>a+Number(b||0),0),updatedAtMs:Date.now(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});if(state.player.clanId){await db.collection('clans').doc(state.player.clanId).collection('members').doc(user.uid).set({displayName:name,avatar:chosen},{merge:true}).catch(()=>{})}await setActivity(document.body?.dataset?.screen==='battle'?'battle':'online');accountLabel(name,'online');if(typeof init==='function')init();closeModal();if(firstTime){const g=`mathclans-guide-v20-${user.uid}`;localStorage.setItem(g,'1');setTimeout(()=>window.MathClansGameHelp?.show?.(true),250)}};},0);
+    setTimeout(()=>{document.querySelectorAll('.avatar-choice').forEach(b=>b.onclick=()=>{chosen=b.dataset.avatar;document.querySelectorAll('.avatar-choice').forEach(x=>x.classList.toggle('selected',x===b))});const c=$o('#profileCancel');if(c)c.onclick=()=>closeModal();const s=$o('#profileSave');if(s)s.onclick=async()=>{const name=($o('#profileNameInput')?.value||'').trim().replace(/\s+/g,' ').slice(0,30);if(name.length<2){alert('Player name must contain at least 2 characters.');return;}const schoolClass=($o('#profileClassInput')?.value||'').trim(),yearLevel=$o('#profileYearInput')?.value||'';state.player.name=name;state.player.avatar=chosen;state.player.schoolClass=schoolClass;state.player.yearLevel=yearLevel;persistAccountState();await db.collection('players').doc(user.uid).set({displayName:name,avatar:chosen,schoolClass,yearLevel,totalSkill:Object.values(state.skills||{}).reduce((a,b)=>a+Number(b||0),0),updatedAtMs:Date.now(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});if(state.player.clanId){await db.collection('clans').doc(state.player.clanId).collection('members').doc(user.uid).set({displayName:name,avatar:chosen},{merge:true}).catch(()=>{})}await setActivity(document.body?.dataset?.screen==='battle'?'battle':'online');accountLabel(name,'online');if(typeof init==='function')init();closeModal();if(firstTime){const g=`mathclans-guide-v20-${user.uid}`;localStorage.setItem(g,'1');setTimeout(()=>window.MathClansGameHelp?.show?.(true),250)}};},0);
   }
 
   async function signInGoogle() {
@@ -268,10 +291,23 @@
       accountLabel(configured ? 'Sign In' : 'Local Demo', configured ? 'offline' : 'demo');
       if (profileUnsub) { profileUnsub(); profileUnsub=null; }
       if (syncTimer) { clearInterval(syncTimer); syncTimer=null; }
+      // Never leave the previous account's screen name/profile visible after sign-out.
+      localStorage.removeItem(ACTIVE_UID_KEY);
+      state = structuredClone(defaultState);
+      if (typeof ensureTrainingState === 'function') ensureTrainingState();
+      if (typeof init === 'function') init();
       return;
     }
+
+    // Critical V2.1.6 fix: browser state is switched to this Firebase UID BEFORE
+    // reading/creating the Firestore player document. One Google account can no
+    // longer inherit another account's last local screen name or progress.
+    const previousUid = localStorage.getItem(ACTIVE_UID_KEY);
+    if (previousUid !== user.uid) resetStateForAccount(user.uid);
+    localStorage.setItem(ACTIVE_UID_KEY, user.uid);
     accountLabel('Loading profile…', 'online');
     await ensurePlayerDoc();
+    persistAccountState();
     await checkAdmin();
     accountLabel(publicPlayerName(), 'online');
     startProfileWatch();

@@ -143,3 +143,10 @@ The defending clan now mirrors the attacker flow. When a challenge arrives, the 
 - The signed-in email is stored only in `privateProfiles/{uid}` and is not used as the public name.
 - Switching Google accounts loads that account's own profile and chosen name.
 - Clan roster and realtime presence use the chosen account-bound public name.
+
+
+## V2.1.6 - Strict account-bound browser state
+- Local browser state is now stored per Firebase UID (`mathclans-v1-<uid>`).
+- Switching Google accounts cannot inherit the previous account's screen name or progress.
+- Signing out clears the visible player identity from the current page.
+- Firestore `players/{uid}.displayName` remains the authoritative public profile name for that account.
