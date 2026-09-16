@@ -1,4 +1,4 @@
-/* MathClans V2.1.6c Cloud Profile Restore + Direct Safari Popup Sign-In + Custom Profile Names + Clan Approval + School-Safe Chat
+/* MathClans V2.1.7 Cloud Profile Restore + Direct Safari Popup Sign-In + Custom Profile Names + Clan Approval + School-Safe Chat
    - Google/Firebase Authentication
    - persistent player profile in Firestore
    - Realtime Database presence

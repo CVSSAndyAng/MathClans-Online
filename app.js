@@ -95,9 +95,12 @@ let audioOn=localStorage.getItem(AUDIO_PREF_KEY)!=='0';
 let audioVolume=Math.max(0,Math.min(1,Number(localStorage.getItem(AUDIO_VOLUME_KEY) ?? .35)));
 if(!Number.isFinite(audioVolume))audioVolume=.35;
 let audioCtx=null,musicMode='ambient',masterGain=null;
-const ambientTrack=new Audio('assets/non-battle-music.mp3');
-const battleTrack=new Audio('assets/battle-music.mp3');
-[ambientTrack,battleTrack].forEach(t=>{t.loop=true;t.preload='auto';t.volume=audioVolume});
+const ambientTrack=new Audio();
+const battleTrack=new Audio();
+ambientTrack.dataset.src='assets/non-battle-music.mp3';
+battleTrack.dataset.src='assets/battle-music.mp3';
+[ambientTrack,battleTrack].forEach(t=>{t.loop=true;t.preload='none';t.volume=audioVolume});
+function ensureMusicSource(track){if(!track.src){track.src=track.dataset.src;track.load()}}
 
 function ensureAudioContext(){
   try{
@@ -123,6 +126,7 @@ function ensureAudioContext(){
 function playAmbient(){
   try{
     if(!audioOn||musicMode!=='ambient')return;
+    ensureMusicSource(ambientTrack);
     ambientTrack.volume=audioVolume;
     const p=ambientTrack.play();
     if(p&&typeof p.catch==='function')p.catch(()=>{});
@@ -171,6 +175,7 @@ function pauseBattle(){try{battleTrack.pause()}catch(err){}}
 function playBattleMusic(){
   try{
     if(!audioOn||musicMode!=='battle')return;
+    ensureMusicSource(battleTrack);
     battleTrack.volume=audioVolume;
     const p=battleTrack.play();
     if(p&&typeof p.catch==='function')p.catch(()=>{});

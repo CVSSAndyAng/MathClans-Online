@@ -1,29 +1,29 @@
-# MathClans V2.1.6c — Cross-Device Profile Name Restore Fix
+# MathClans V2.1.7 — Cross-Device Profile Name Restore Fix
 
-This patch keeps the V2.1.6b iPad/Safari login fix and corrects cross-device profile loading. A profile name saved on PC is now loaded from Firestore when the same Google/Firebase account signs in on an iPad or another browser.
+This patch keeps the V2.1.7 iPad/Safari login fix and corrects cross-device profile loading. A profile name saved on PC is now loaded from Firestore when the same Google/Firebase account signs in on an iPad or another browser.
 
-## Updated in V2.1.6c
+## Updated in V2.1.7
 
 - Fixed a JavaScript guard that incorrectly checked `window.state`. `state` is declared with top-level `let` in `app.js`, so it is not a `window` property.
 - Because of that guard, Firestore profile data could be fetched successfully but never applied on a fresh device.
 - The app now applies `players/{uid}.displayName`, avatar, progress, clan membership, class and year level from Firestore after login.
 - Account-scoped local storage remains a cache only; the cloud profile is authoritative when a player signs in.
-- Existing V2.1.6b Safari popup login behaviour is retained.
+- Existing V2.1.7 Safari popup login behaviour is retained.
 - No Firebase rules changes are required.
 
 ---
 
-# MathClans V2.1.6b — iPad/Safari Google Sign-In Fix
+# MathClans V2.1.7 — iPad/Safari Google Sign-In Fix
 
-This patch keeps the V2.1.6 strict account-bound profile system and corrects the iPad/iPhone Safari sign-in path for the existing GitHub Pages deployment.
+This patch keeps the V2.1.7 strict account-bound profile system and corrects the iPad/iPhone Safari sign-in path for the existing GitHub Pages deployment.
 
-## Updated in V2.1.6b
+## Updated in V2.1.7
 
 - Google sign-in now starts `signInWithPopup()` immediately from the student's tap/click on all browsers, including iPad/iPhone Safari.
 - No asynchronous `setPersistence()` call occurs before opening Google sign-in, preventing Safari from treating the Firebase popup as an unsolicited popup.
-- The V2.1.6a redirect path has been removed for GitHub Pages because Safari 16.1+ blocks the cross-origin storage used by Firebase redirect sign-in unless extra hosting/proxy configuration is implemented.
+- The V2.1.7a redirect path has been removed for GitHub Pages because Safari 16.1+ blocks the cross-origin storage used by Firebase redirect sign-in unless extra hosting/proxy configuration is implemented.
 - Firebase local persistence is initialized in the background during app startup instead.
-- Existing V2.1.6 account-bound profile names, clans, chat and battle data are unchanged.
+- Existing V2.1.7 account-bound profile names, clans, chat and battle data are unchanged.
 
 # MathClans V2.1.5 — Account-Bound Custom Profile Names
 
@@ -172,8 +172,26 @@ The defending clan now mirrors the attacker flow. When a challenge arrives, the 
 - Clan roster and realtime presence use the chosen account-bound public name.
 
 
-## V2.1.6 - Strict account-bound browser state
+## V2.1.7 - Strict account-bound browser state
 - Local browser state is now stored per Firebase UID (`mathclans-v1-<uid>`).
 - Switching Google accounts cannot inherit the previous account's screen name or progress.
 - Signing out clears the visible player identity from the current page.
 - Firestore `players/{uid}.displayName` remains the authoritative public profile name for that account.
+
+
+## V2.1.7 Lightweight Production Build
+
+V2.1.7 keeps the V2.1.6c account/profile, clan, rally, chat, battle and iPad Safari login behaviour, while reducing startup cost for school deployment.
+
+Performance changes:
+- The vintage Singapore map is no longer embedded as ~4.3 MB of Base64 inside `index.html`; it is a compressed WebP asset.
+- The battle backdrop is also an external compressed WebP and is requested only when the Battle screen becomes active.
+- Background music is re-encoded at 128 kbps and is not downloaded until the player actually starts audio.
+- JavaScript files use deferred loading so the page can render while scripts download in parallel.
+- Top Scholars data is fetched when the Ranking screen is opened instead of during normal clan startup.
+- A small versioned service worker caches the static game shell for much faster repeat loads while keeping `index.html` network-first so updates are still picked up.
+
+The game remains an online Firebase application. The service worker improves static loading but does not make Google sign-in, cloud profiles, chat or multiplayer battles work without internet access.
+
+### Single-HTML alternative
+A one-file `index.html` build remains a possible alternative for special distribution cases, but it is intentionally not the main V2.1.7 deployment. Embedding the map, battle art, scripts and music into one HTML would make the initial download substantially larger and would reduce browser caching efficiency. The multi-file lightweight build is the recommended school/iPad version.
