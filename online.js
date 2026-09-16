@@ -1,4 +1,4 @@
-/* MathClans V2.1.6a Strict Account-Bound Browser State + iPad/Safari Sign-In Fix + Custom Profile Names + Clan Approval + School-Safe Chat
+/* MathClans V2.1.6b Strict Account-Bound Browser State + Direct Safari Popup Sign-In + Custom Profile Names + Clan Approval + School-Safe Chat
    - Google/Firebase Authentication
    - persistent player profile in Firestore
    - Realtime Database presence
@@ -239,13 +239,6 @@
     setTimeout(()=>{document.querySelectorAll('.avatar-choice').forEach(b=>b.onclick=()=>{chosen=b.dataset.avatar;document.querySelectorAll('.avatar-choice').forEach(x=>x.classList.toggle('selected',x===b))});const c=$o('#profileCancel');if(c)c.onclick=()=>closeModal();const s=$o('#profileSave');if(s)s.onclick=async()=>{const name=($o('#profileNameInput')?.value||'').trim().replace(/\s+/g,' ').slice(0,30);if(name.length<2){alert('Player name must contain at least 2 characters.');return;}const schoolClass=($o('#profileClassInput')?.value||'').trim(),yearLevel=$o('#profileYearInput')?.value||'';state.player.name=name;state.player.avatar=chosen;state.player.schoolClass=schoolClass;state.player.yearLevel=yearLevel;persistAccountState();await db.collection('players').doc(user.uid).set({displayName:name,avatar:chosen,schoolClass,yearLevel,totalSkill:Object.values(state.skills||{}).reduce((a,b)=>a+Number(b||0),0),updatedAtMs:Date.now(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});if(state.player.clanId){await db.collection('clans').doc(state.player.clanId).collection('members').doc(user.uid).set({displayName:name,avatar:chosen},{merge:true}).catch(()=>{})}await setActivity(document.body?.dataset?.screen==='battle'?'battle':'online');accountLabel(name,'online');if(typeof init==='function')init();closeModal();if(firstTime){const g=`mathclans-guide-v20-${user.uid}`;localStorage.setItem(g,'1');setTimeout(()=>window.MathClansGameHelp?.show?.(true),250)}};},0);
   }
 
-  function isIOSOrIPadOS() {
-    const ua = navigator.userAgent || '';
-    const platform = navigator.platform || '';
-    const touchMac = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-    return /iPad|iPhone|iPod/i.test(ua) || touchMac;
-  }
-
   async function validateSignedInAccount(u) {
     if (!u) return false;
     if (allowedDomain && u.email) {
@@ -259,42 +252,35 @@
     return true;
   }
 
-  async function signInGoogle() {
+  function signInGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({prompt: 'select_account'});
-    try {
-      await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-      // Safari/iPadOS commonly blocks popup-based OAuth. Use a full-page redirect
-      // on Apple mobile devices, while retaining popup sign-in on desktop.
-      if (isIOSOrIPadOS()) {
-        if (typeof closeModal === 'function') closeModal();
-        await auth.signInWithRedirect(provider);
-        return;
-      }
+    // IMPORTANT for iPad/iPhone Safari:
+    // signInWithPopup() must be started directly from the user's tap/click.
+    // Do not await setPersistence() or any other async work before this call,
+    // otherwise Safari can classify the Firebase popup as unsolicited and block it.
+    //
+    // MathClans is hosted on GitHub Pages. Firebase redirect sign-in relies on
+    // cross-origin storage when authDomain is *.firebaseapp.com, which Safari
+    // 16.1+ blocks unless extra hosting/proxy configuration is used. Therefore
+    // V2.1.6b intentionally uses the direct popup flow on iPad/iPhone as well.
+    const popupPromise = auth.signInWithPopup(provider);
 
-      const result = await auth.signInWithPopup(provider);
+    popupPromise.then(async result => {
       if (typeof closeModal === 'function') closeModal();
       await validateSignedInAccount(result.user);
-    } catch (err) {
-      console.error(err);
+    }).catch(err => {
+      console.error('Google popup sign-in failed:', err);
       const code = String(err?.code || '');
-
-      // Some browsers can still block the popup despite a direct button click.
-      // Fall back to the redirect flow instead of asking students to change Safari settings.
-      if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
-        try {
-          if (typeof closeModal === 'function') closeModal();
-          await auth.signInWithRedirect(provider);
-          return;
-        } catch (redirectErr) {
-          console.error('Redirect sign-in failed:', redirectErr);
-          err = redirectErr;
-        }
+      let extra = '';
+      if (code === 'auth/popup-blocked') {
+        extra = '<p class="online-small"><b>Safari blocked the Google sign-in window.</b> Tap Close, then tap Sign in with Google again. If Safari still blocks it, temporarily allow pop-ups for this site in Safari settings.</p>';
+      } else if (code === 'auth/popup-closed-by-user') {
+        extra = '<p class="online-small">The Google sign-in window was closed before sign-in finished.</p>';
       }
-
-      modal(`<span class="eyebrow">SIGN-IN ERROR</span><h3>Could not sign in</h3><p>${esc(String(err.message || err))}</p><p class="online-small">Error code: ${esc(String(err.code || 'unknown'))}</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
-    }
+      modal(`<span class="eyebrow">SIGN-IN ERROR</span><h3>Could not sign in</h3><p>${esc(String(err.message || err))}</p>${extra}<p class="online-small">Error code: ${esc(String(err.code || 'unknown'))}</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
+    });
   }
 
   async function signOut() {
@@ -372,14 +358,11 @@
     rtdb = firebase.database();
     auth.useDeviceLanguage();
 
-    // Complete any Google redirect sign-in after Safari/iPad returns to MathClans.
-    // onAuthStateChanged remains the single place that loads the account-bound profile.
-    auth.getRedirectResult().then(async result => {
-      if (result?.user) await validateSignedInAccount(result.user);
-    }).catch(err => {
-      console.error('Redirect sign-in result failed:', err);
-      modal(`<span class="eyebrow">SIGN-IN ERROR</span><h3>Could not complete sign in</h3><p>${esc(String(err.message || err))}</p><p class="online-small">Error code: ${esc(String(err.code || 'unknown'))}</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
-    });
+    // Firebase Auth web persistence is local by default. Avoid any awaited work
+    // in the sign-in button handler so Safari preserves the user gesture.
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err =>
+      console.warn('Could not set Firebase local persistence:', err)
+    );
 
     auth.onAuthStateChanged(onAuth);
     window.addEventListener('pagehide', () => { if (user) syncProgress(true); });
