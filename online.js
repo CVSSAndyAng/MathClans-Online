@@ -1,4 +1,4 @@
-/* MathClans V2.1.6 Strict Account-Bound Browser State + Custom Profile Names + Clan Approval + School-Safe Chat
+/* MathClans V2.1.6a Strict Account-Bound Browser State + iPad/Safari Sign-In Fix + Custom Profile Names + Clan Approval + School-Safe Chat
    - Google/Firebase Authentication
    - persistent player profile in Firestore
    - Realtime Database presence
@@ -239,23 +239,61 @@
     setTimeout(()=>{document.querySelectorAll('.avatar-choice').forEach(b=>b.onclick=()=>{chosen=b.dataset.avatar;document.querySelectorAll('.avatar-choice').forEach(x=>x.classList.toggle('selected',x===b))});const c=$o('#profileCancel');if(c)c.onclick=()=>closeModal();const s=$o('#profileSave');if(s)s.onclick=async()=>{const name=($o('#profileNameInput')?.value||'').trim().replace(/\s+/g,' ').slice(0,30);if(name.length<2){alert('Player name must contain at least 2 characters.');return;}const schoolClass=($o('#profileClassInput')?.value||'').trim(),yearLevel=$o('#profileYearInput')?.value||'';state.player.name=name;state.player.avatar=chosen;state.player.schoolClass=schoolClass;state.player.yearLevel=yearLevel;persistAccountState();await db.collection('players').doc(user.uid).set({displayName:name,avatar:chosen,schoolClass,yearLevel,totalSkill:Object.values(state.skills||{}).reduce((a,b)=>a+Number(b||0),0),updatedAtMs:Date.now(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});if(state.player.clanId){await db.collection('clans').doc(state.player.clanId).collection('members').doc(user.uid).set({displayName:name,avatar:chosen},{merge:true}).catch(()=>{})}await setActivity(document.body?.dataset?.screen==='battle'?'battle':'online');accountLabel(name,'online');if(typeof init==='function')init();closeModal();if(firstTime){const g=`mathclans-guide-v20-${user.uid}`;localStorage.setItem(g,'1');setTimeout(()=>window.MathClansGameHelp?.show?.(true),250)}};},0);
   }
 
-  async function signInGoogle() {
-    try {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      provider.setCustomParameters({prompt: 'select_account'});
-      const result = await auth.signInWithPopup(provider);
-      const u = result.user;
-      if (typeof closeModal === 'function') closeModal();
-      if (allowedDomain && u?.email) {
-        const domain = u.email.split('@').pop().toLowerCase();
-        if (domain !== allowedDomain) {
-          await auth.signOut();
-          modal(`<span class="eyebrow">SIGN-IN BLOCKED</span><h3>School account required</h3><p>Please sign in using an <b>@${allowedDomain}</b> account.</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
-        }
+  function isIOSOrIPadOS() {
+    const ua = navigator.userAgent || '';
+    const platform = navigator.platform || '';
+    const touchMac = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    return /iPad|iPhone|iPod/i.test(ua) || touchMac;
+  }
+
+  async function validateSignedInAccount(u) {
+    if (!u) return false;
+    if (allowedDomain && u.email) {
+      const domain = u.email.split('@').pop().toLowerCase();
+      if (domain !== allowedDomain) {
+        await auth.signOut();
+        modal(`<span class="eyebrow">SIGN-IN BLOCKED</span><h3>School account required</h3><p>Please sign in using an <b>@${allowedDomain}</b> account.</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
+        return false;
       }
+    }
+    return true;
+  }
+
+  async function signInGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({prompt: 'select_account'});
+    try {
+      await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+      // Safari/iPadOS commonly blocks popup-based OAuth. Use a full-page redirect
+      // on Apple mobile devices, while retaining popup sign-in on desktop.
+      if (isIOSOrIPadOS()) {
+        if (typeof closeModal === 'function') closeModal();
+        await auth.signInWithRedirect(provider);
+        return;
+      }
+
+      const result = await auth.signInWithPopup(provider);
+      if (typeof closeModal === 'function') closeModal();
+      await validateSignedInAccount(result.user);
     } catch (err) {
       console.error(err);
-      modal(`<span class="eyebrow">SIGN-IN ERROR</span><h3>Could not sign in</h3><p>${String(err.message || err)}</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
+      const code = String(err?.code || '');
+
+      // Some browsers can still block the popup despite a direct button click.
+      // Fall back to the redirect flow instead of asking students to change Safari settings.
+      if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
+        try {
+          if (typeof closeModal === 'function') closeModal();
+          await auth.signInWithRedirect(provider);
+          return;
+        } catch (redirectErr) {
+          console.error('Redirect sign-in failed:', redirectErr);
+          err = redirectErr;
+        }
+      }
+
+      modal(`<span class="eyebrow">SIGN-IN ERROR</span><h3>Could not sign in</h3><p>${esc(String(err.message || err))}</p><p class="online-small">Error code: ${esc(String(err.code || 'unknown'))}</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
     }
   }
 
@@ -333,6 +371,16 @@
     db = firebase.firestore();
     rtdb = firebase.database();
     auth.useDeviceLanguage();
+
+    // Complete any Google redirect sign-in after Safari/iPad returns to MathClans.
+    // onAuthStateChanged remains the single place that loads the account-bound profile.
+    auth.getRedirectResult().then(async result => {
+      if (result?.user) await validateSignedInAccount(result.user);
+    }).catch(err => {
+      console.error('Redirect sign-in result failed:', err);
+      modal(`<span class="eyebrow">SIGN-IN ERROR</span><h3>Could not complete sign in</h3><p>${esc(String(err.message || err))}</p><p class="online-small">Error code: ${esc(String(err.code || 'unknown'))}</p><div class="modal-actions"><button class="primary" onclick="closeModal()">Close</button></div>`);
+    });
+
     auth.onAuthStateChanged(onAuth);
     window.addEventListener('pagehide', () => { if (user) syncProgress(true); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) syncProgress(false); });

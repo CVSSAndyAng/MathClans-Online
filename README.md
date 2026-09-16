@@ -1,3 +1,21 @@
+# MathClans V2.1.6a — iPad/Safari Google Sign-In Fix
+
+This patch keeps the V2.1.6 strict account-bound profile system and adds an iPad/iPhone-safe Google authentication flow. Apple mobile devices use Firebase redirect sign-in instead of popup sign-in; desktop browsers continue using popups. If a desktop popup is blocked, MathClans automatically falls back to redirect sign-in.
+
+## Updated in V2.1.6a
+
+- iPad/iPhone/iPadOS detection, including modern iPadOS devices that identify as Mac.
+- Mobile Apple devices use `signInWithRedirect()` rather than `signInWithPopup()`.
+- Desktop browsers retain popup sign-in.
+- `auth/popup-blocked` automatically falls back to redirect sign-in.
+- Redirect results are completed on page load with `getRedirectResult()`.
+- Firebase local persistence is set before authentication so the account remains signed in after the redirect.
+- Existing V2.1.6 account-bound profile names, clans, chat and battle data are unchanged.
+
+## GitHub upload
+
+For this patch, replace only `online.js`, `index.html`, and `README.md`. No Firestore or Realtime Database rule changes are required.
+
 # MathClans V2.1.5 — Account-Bound Custom Profile Names
 
 V2.1.5 builds on V2.1.4 and restores player-chosen public profile names while binding each profile to the authenticated Firebase/Google account (UID). A player may change the public name, but signing in with a different email account loads a different MathClans profile. The email remains private.
