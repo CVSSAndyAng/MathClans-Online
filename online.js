@@ -1,4 +1,4 @@
-/* MathClans V2.1.6b Strict Account-Bound Browser State + Direct Safari Popup Sign-In + Custom Profile Names + Clan Approval + School-Safe Chat
+/* MathClans V2.1.6c Cloud Profile Restore + Direct Safari Popup Sign-In + Custom Profile Names + Clan Approval + School-Safe Chat
    - Google/Firebase Authentication
    - persistent player profile in Firestore
    - Realtime Database presence
@@ -95,7 +95,10 @@
   }
 
   function applyCloudPlayer(data) {
-    if (!data || !window.state) return;
+    // `state` is declared with top-level `let` in app.js, so it is NOT a window property.
+    // The old `!window.state` guard prevented Firestore profiles from ever being applied
+    // on a fresh browser/device (e.g. an iPad), leaving the local/default screen name visible.
+    if (!data || typeof state === 'undefined' || !state) return;
     state.player.name = data.displayName || (user ? loginDisplayName() : (state.player.name || 'Mathling'));
     if (data.avatar) state.player.avatar = data.avatar;
     if (Number.isFinite(data.level)) state.player.level = data.level;

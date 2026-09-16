@@ -1,3 +1,18 @@
+# MathClans V2.1.6c — Cross-Device Profile Name Restore Fix
+
+This patch keeps the V2.1.6b iPad/Safari login fix and corrects cross-device profile loading. A profile name saved on PC is now loaded from Firestore when the same Google/Firebase account signs in on an iPad or another browser.
+
+## Updated in V2.1.6c
+
+- Fixed a JavaScript guard that incorrectly checked `window.state`. `state` is declared with top-level `let` in `app.js`, so it is not a `window` property.
+- Because of that guard, Firestore profile data could be fetched successfully but never applied on a fresh device.
+- The app now applies `players/{uid}.displayName`, avatar, progress, clan membership, class and year level from Firestore after login.
+- Account-scoped local storage remains a cache only; the cloud profile is authoritative when a player signs in.
+- Existing V2.1.6b Safari popup login behaviour is retained.
+- No Firebase rules changes are required.
+
+---
+
 # MathClans V2.1.6b — iPad/Safari Google Sign-In Fix
 
 This patch keeps the V2.1.6 strict account-bound profile system and corrects the iPad/iPhone Safari sign-in path for the existing GitHub Pages deployment.
