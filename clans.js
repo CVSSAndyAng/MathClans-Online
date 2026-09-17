@@ -1,4 +1,4 @@
-/* MathClans V2.1.7 live multiplayer clans + leader-approved membership */
+/* MathClans V2.1.7a live multiplayer clans + leader-approved membership */
 (() => {
 'use strict';
 const $=q=>document.querySelector(q);
@@ -38,7 +38,7 @@ async function createClan(){
  try{await batch.commit();state.player.clanId=ref.id;state.player.clanRole='leader';save();closeModal();await loadClan(ref.id);gameToast('🏰 Online clan created.')}catch(e){console.error(e);gameToast('Could not create clan. Check Firestore rules.')}
 }
 async function openBrowse(){
- if(!user)return;showModal('<span class="eyebrow">CLAN DIRECTORY · V2.1.7</span><h3>Online Clans</h3><p>Joining is by application. The clan leader decides whether to accept a new member.</p><div id="cloudClanList">Loading…</div><div class="modal-actions"><button class="secondary" onclick="closeModal()">Close</button></div>');
+ if(!user)return;showModal('<span class="eyebrow">CLAN DIRECTORY · V2.1.7a</span><h3>Online Clans</h3><p>Joining is by application. The clan leader decides whether to accept a new member.</p><div id="cloudClanList">Loading…</div><div class="modal-actions"><button class="secondary" onclick="closeModal()">Close</button></div>');
  try{
    const snap=await db.collection('clans').orderBy('createdAt','desc').limit(30).get(),requestStates={};
    if(!state.player.clanId){await Promise.all(snap.docs.map(async d=>{try{const r=await d.ref.collection('joinRequests').doc(user.uid).get();if(r.exists)requestStates[d.id]=r.data()?.status||'pending'}catch(e){}}))}
@@ -48,24 +48,76 @@ async function openBrowse(){
  }catch(e){console.error(e);$('#cloudClanList').innerHTML='<p>Could not load clans. Check Firestore rules.</p>'}
 }
 async function requestJoinClan(id){if(!user||state.player.clanId)return;try{const cref=db.collection('clans').doc(id),cs=await cref.get();if(!cs.exists)throw new Error('Clan no longer exists.');const c=cs.data()||{};if(Number(c.memberCount||0)>=30)throw new Error('Clan is full (30/30).');await cref.collection('joinRequests').doc(user.uid).set({uid:user.uid,displayName:state.player.name,avatar:state.player.avatar,status:'pending',requestedAtMs:Date.now(),requestedAt:firebase.firestore.FieldValue.serverTimestamp()});gameToast('📨 Join request sent to the clan leader.');openBrowse()}catch(e){console.error(e);gameToast(e.message||'Could not send join request.')}}
-async function openApplications(){if(!user||!clan||state.player.clanRole!=='leader')return;showModal('<span class="eyebrow">CLAN APPLICATIONS · V2.1.7</span><h3>Pending applications</h3><p>You may accept or reject new applicants. Existing members cannot be removed by the clan leader.</p><div id="clanApplicationList">Loading…</div><div class="modal-actions"><button class="secondary" onclick="closeModal()">Close</button></div>');try{const s=await db.collection('clans').doc(clan.id).collection('joinRequests').where('status','==','pending').limit(50).get(),box=$('#clanApplicationList');box.innerHTML=s.empty?'<p>No pending applications.</p>':s.docs.map(d=>{const x=d.data()||{};return `<div class="cloud-clan-row"><span class="cloud-clan-crest">${x.avatar||'🐲'}</span><div><strong>${esc(x.displayName||'Mathling')}</strong><small>Requested to join your clan</small></div><button class="primary accept-clan-app" data-id="${d.id}">Accept</button><button class="secondary reject-clan-app" data-id="${d.id}">Reject</button></div>`}).join('');box.querySelectorAll('.accept-clan-app').forEach(b=>b.onclick=()=>acceptApplication(b.dataset.id));box.querySelectorAll('.reject-clan-app').forEach(b=>b.onclick=()=>rejectApplication(b.dataset.id));}catch(e){console.error(e);$('#clanApplicationList').innerHTML='<p>Could not load applications.</p>'}}
+async function openApplications(){if(!user||!clan||state.player.clanRole!=='leader')return;showModal('<span class="eyebrow">CLAN APPLICATIONS · V2.1.7a</span><h3>Pending applications</h3><p>You may accept or reject new applicants. Existing members cannot be removed by the clan leader.</p><div id="clanApplicationList">Loading…</div><div class="modal-actions"><button class="secondary" onclick="closeModal()">Close</button></div>');try{const s=await db.collection('clans').doc(clan.id).collection('joinRequests').where('status','==','pending').limit(50).get(),box=$('#clanApplicationList');box.innerHTML=s.empty?'<p>No pending applications.</p>':s.docs.map(d=>{const x=d.data()||{};return `<div class="cloud-clan-row"><span class="cloud-clan-crest">${x.avatar||'🐲'}</span><div><strong>${esc(x.displayName||'Mathling')}</strong><small>Requested to join your clan</small></div><button class="primary accept-clan-app" data-id="${d.id}">Accept</button><button class="secondary reject-clan-app" data-id="${d.id}">Reject</button></div>`}).join('');box.querySelectorAll('.accept-clan-app').forEach(b=>b.onclick=()=>acceptApplication(b.dataset.id));box.querySelectorAll('.reject-clan-app').forEach(b=>b.onclick=()=>rejectApplication(b.dataset.id));}catch(e){console.error(e);$('#clanApplicationList').innerHTML='<p>Could not load applications.</p>'}}
 async function acceptApplication(uid){if(!user||!clan||state.player.clanRole!=='leader')return;const cref=db.collection('clans').doc(clan.id),rref=cref.collection('joinRequests').doc(uid),mref=cref.collection('members').doc(uid),pref=db.collection('players').doc(uid);try{await db.runTransaction(async tx=>{const [cs,rs,ps]=await Promise.all([tx.get(cref),tx.get(rref),tx.get(pref)]);if(!cs.exists||!rs.exists)throw new Error('Application no longer exists.');const c=cs.data()||{},r=rs.data()||{},p=ps.data()||{};if(r.status!=='pending')throw new Error('Application already handled.');if(Number(c.memberCount||0)>=30)throw new Error('Clan is full (30/30).');if(p.clanId)throw new Error('Applicant has already joined another clan.');tx.set(mref,{uid,role:'member',displayName:r.displayName||p.displayName||'Mathling',avatar:r.avatar||p.avatar||'🐲',joinedAt:firebase.firestore.FieldValue.serverTimestamp()});tx.update(cref,{memberCount:Number(c.memberCount||0)+1});tx.set(pref,{clanId:clan.id,clanRole:'member',updatedAtMs:Date.now()},{merge:true});tx.delete(rref)});profiles.delete(uid);const ms=await cref.collection('members').get();memberRows=ms.docs.map(d=>d.data());clan.memberCount=memberRows.length;updatePanel();await rebuildRoster();gameToast('✅ Applicant accepted. Member roster updated.');openApplications()}catch(e){console.error(e);gameToast(e.message||'Could not accept applicant.')}}
 async function rejectApplication(uid){if(!user||!clan||state.player.clanRole!=='leader')return;try{await db.collection('clans').doc(clan.id).collection('joinRequests').doc(uid).set({status:'rejected',decidedAtMs:Date.now(),decidedBy:user.uid},{merge:true});gameToast('Application rejected.');openApplications()}catch(e){console.error(e);gameToast('Could not reject application.')}}
 async function leaveClan(){
- if(!clan||!user)return;if(!confirm(`Leave ${clan.name}?`))return;
+ if(!clan||!user)return;
  const cref=db.collection('clans').doc(clan.id),mref=cref.collection('members').doc(user.uid),pref=db.collection('players').doc(user.uid);
  try{
-   const memberSnap=await cref.collection('members').orderBy('joinedAt','asc').get();
-   const remaining=memberSnap.docs.filter(d=>d.id!==user.uid);
-   if(remaining.length===0){
-     const batch=db.batch();batch.delete(mref);batch.delete(cref);batch.set(pref,{clanId:null,clanRole:null,updatedAtMs:Date.now()},{merge:true});await batch.commit();
-   }else if(state.player.clanRole==='leader'){
-     const nextDoc=remaining[0],nextUid=nextDoc.id;
-     await db.runTransaction(async tx=>{const cs=await tx.get(cref);const c=cs.data()||{};tx.update(cref,{leaderId:nextUid,memberCount:Math.max(1,(c.memberCount||remaining.length+1)-1)});tx.update(nextDoc.ref,{role:'leader'});tx.delete(mref);tx.set(pref,{clanId:null,clanRole:null,updatedAtMs:Date.now()},{merge:true})});
+   // Read every member without orderBy. orderBy('joinedAt') silently omits older/legacy member docs
+   // that do not contain joinedAt, which can make the leave/leadership logic incorrect.
+   const memberSnap=await cref.collection('members').get();
+   const docs=[...memberSnap.docs];
+   const mine=docs.find(d=>d.id===user.uid);
+   if(!mine)throw new Error('Your clan membership record could not be found. Refresh and try again.');
+   const remaining=docs.filter(d=>d.id!==user.uid).sort((a,b)=>{
+     const av=a.data()?.joinedAt?.toMillis?.() ?? a.data()?.joinedAtMs ?? Number.MAX_SAFE_INTEGER;
+     const bv=b.data()?.joinedAt?.toMillis?.() ?? b.data()?.joinedAtMs ?? Number.MAX_SAFE_INTEGER;
+     return av-bv;
+   });
+   const isLast=remaining.length===0;
+   const msg=isLast
+     ? `You are the last member of ${clan.name}. Leaving will permanently remove the clan. Continue?`
+     : `Leave ${clan.name}?`;
+   if(!confirm(msg))return;
+
+   if(isLast){
+     // The last member should always be the leader. Use the live clan document rather than local UI state.
+     // Also repair a stale memberCount before deletion so the Firestore delete rule can succeed.
+     let cs=await cref.get();
+     if(!cs.exists){
+       await pref.set({clanId:null,clanRole:null,updatedAtMs:Date.now()},{merge:true});
+     }else{
+       let c=cs.data()||{};
+       if(c.leaderId!==user.uid)throw new Error('Clan leadership is out of sync. Refresh the page and try again.');
+       if(Number(c.memberCount||0)!==1){
+         await cref.update({memberCount:1});
+         cs=await cref.get();c=cs.data()||{};
+       }
+       const batch=db.batch();
+       batch.delete(mref);
+       batch.delete(cref);
+       batch.set(pref,{clanId:null,clanRole:null,updatedAtMs:Date.now()},{merge:true});
+       await batch.commit();
+     }
    }else{
-     await db.runTransaction(async tx=>{const cs=await tx.get(cref);const c=cs.data()||{};tx.delete(mref);tx.update(cref,{memberCount:Math.max(0,(c.memberCount||1)-1)});tx.set(pref,{clanId:null,clanRole:null,updatedAtMs:Date.now()},{merge:true})});
+     const cs=await cref.get();
+     if(!cs.exists)throw new Error('Clan no longer exists.');
+     const c=cs.data()||{};
+     const isLeader=c.leaderId===user.uid;
+     if(isLeader){
+       const nextDoc=remaining[0],nextUid=nextDoc.id;
+       await db.runTransaction(async tx=>{
+         const live=await tx.get(cref);if(!live.exists)throw new Error('Clan no longer exists.');
+         tx.update(cref,{leaderId:nextUid,memberCount:remaining.length});
+         tx.update(nextDoc.ref,{role:'leader'});
+         tx.delete(mref);
+         tx.set(pref,{clanId:null,clanRole:null,updatedAtMs:Date.now()},{merge:true});
+       });
+     }else{
+       await db.runTransaction(async tx=>{
+         const live=await tx.get(cref);if(!live.exists)throw new Error('Clan no longer exists.');
+         tx.delete(mref);
+         tx.update(cref,{memberCount:remaining.length});
+         tx.set(pref,{clanId:null,clanRole:null,updatedAtMs:Date.now()},{merge:true});
+       });
+     }
    }
-   await rtdb.ref(`warReady/${user.uid}`).remove();state.player.clanId=null;state.player.clanRole=null;save();stopWatchers();clan=null;memberRows=[];presence={};ready={};window.MathClansGame?.setMembers?.([]);window.MathClansGame?.setPlayerClan?.(null,null);updatePanel();gameToast('Left clan.');
+   await rtdb.ref(`warReady/${user.uid}`).remove();
+   state.player.clanId=null;state.player.clanRole=null;save();stopWatchers();clan=null;memberRows=[];presence={};ready={};
+   window.MathClansGame?.setMembers?.([]);window.MathClansGame?.setPlayerClan?.(null,null);updatePanel();
+   gameToast(isLast?'Clan removed. You left as the final member.':'Left clan.');
  }catch(e){console.error(e);gameToast(e.message||'Could not leave clan.')}
 }
 async function toggleReady(){if(!user||!clan)return;const ref=rtdb.ref(`warReady/${user.uid}`);const snap=await ref.once('value');if(snap.exists()&&snap.val()?.ready){await ref.remove();gameToast('War Ready off.')}else{await ref.set({ready:true,clanId:clan.id,lastChanged:firebase.database.ServerValue.TIMESTAMP});gameToast('⚔ War Ready on.')}}
