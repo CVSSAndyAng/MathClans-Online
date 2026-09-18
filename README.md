@@ -1,29 +1,29 @@
-# MathClans V2.1.7a — Cross-Device Profile Name Restore Fix
+# MathClans V2.1.7b — Cross-Device Profile Name Restore Fix
 
-This patch keeps the V2.1.7a iPad/Safari login fix and corrects cross-device profile loading. A profile name saved on PC is now loaded from Firestore when the same Google/Firebase account signs in on an iPad or another browser.
+This patch keeps the V2.1.7b iPad/Safari login fix and corrects cross-device profile loading. A profile name saved on PC is now loaded from Firestore when the same Google/Firebase account signs in on an iPad or another browser.
 
-## Updated in V2.1.7a
+## Updated in V2.1.7b
 
 - Fixed a JavaScript guard that incorrectly checked `window.state`. `state` is declared with top-level `let` in `app.js`, so it is not a `window` property.
 - Because of that guard, Firestore profile data could be fetched successfully but never applied on a fresh device.
 - The app now applies `players/{uid}.displayName`, avatar, progress, clan membership, class and year level from Firestore after login.
 - Account-scoped local storage remains a cache only; the cloud profile is authoritative when a player signs in.
-- Existing V2.1.7a Safari popup login behaviour is retained.
+- Existing V2.1.7b Safari popup login behaviour is retained.
 - No Firebase rules changes are required.
 
 ---
 
-# MathClans V2.1.7a — iPad/Safari Google Sign-In Fix
+# MathClans V2.1.7b — iPad/Safari Google Sign-In Fix
 
-This patch keeps the V2.1.7a strict account-bound profile system and corrects the iPad/iPhone Safari sign-in path for the existing GitHub Pages deployment.
+This patch keeps the V2.1.7b strict account-bound profile system and corrects the iPad/iPhone Safari sign-in path for the existing GitHub Pages deployment.
 
-## Updated in V2.1.7a
+## Updated in V2.1.7b
 
 - Google sign-in now starts `signInWithPopup()` immediately from the student's tap/click on all browsers, including iPad/iPhone Safari.
 - No asynchronous `setPersistence()` call occurs before opening Google sign-in, preventing Safari from treating the Firebase popup as an unsolicited popup.
-- The V2.1.7aa redirect path has been removed for GitHub Pages because Safari 16.1+ blocks the cross-origin storage used by Firebase redirect sign-in unless extra hosting/proxy configuration is implemented.
+- The V2.1.7ba redirect path has been removed for GitHub Pages because Safari 16.1+ blocks the cross-origin storage used by Firebase redirect sign-in unless extra hosting/proxy configuration is implemented.
 - Firebase local persistence is initialized in the background during app startup instead.
-- Existing V2.1.7a account-bound profile names, clans, chat and battle data are unchanged.
+- Existing V2.1.7b account-bound profile names, clans, chat and battle data are unchanged.
 
 # MathClans V2.1.5 — Account-Bound Custom Profile Names
 
@@ -172,16 +172,16 @@ The defending clan now mirrors the attacker flow. When a challenge arrives, the 
 - Clan roster and realtime presence use the chosen account-bound public name.
 
 
-## V2.1.7a - Strict account-bound browser state
+## V2.1.7b - Strict account-bound browser state
 - Local browser state is now stored per Firebase UID (`mathclans-v1-<uid>`).
 - Switching Google accounts cannot inherit the previous account's screen name or progress.
 - Signing out clears the visible player identity from the current page.
 - Firestore `players/{uid}.displayName` remains the authoritative public profile name for that account.
 
 
-## V2.1.7a Lightweight Production Build
+## V2.1.7b Lightweight Production Build
 
-V2.1.7a keeps the V2.1.6c account/profile, clan, rally, chat, battle and iPad Safari login behaviour, while reducing startup cost for school deployment.
+V2.1.7b keeps the V2.1.6c account/profile, clan, rally, chat, battle and iPad Safari login behaviour, while reducing startup cost for school deployment.
 
 Performance changes:
 - The vintage Singapore map is no longer embedded as ~4.3 MB of Base64 inside `index.html`; it is a compressed WebP asset.
@@ -194,11 +194,17 @@ Performance changes:
 The game remains an online Firebase application. The service worker improves static loading but does not make Google sign-in, cloud profiles, chat or multiplayer battles work without internet access.
 
 ### Single-HTML alternative
-A one-file `index.html` build remains a possible alternative for special distribution cases, but it is intentionally not the main V2.1.7a deployment. Embedding the map, battle art, scripts and music into one HTML would make the initial download substantially larger and would reduce browser caching efficiency. The multi-file lightweight build is the recommended school/iPad version.
+A one-file `index.html` build remains a possible alternative for special distribution cases, but it is intentionally not the main V2.1.7b deployment. Embedding the map, battle art, scripts and music into one HTML would make the initial download substantially larger and would reduce browser caching efficiency. The multi-file lightweight build is the recommended school/iPad version.
 
-## V2.1.7a clan leave fix
+## V2.1.7b clan leave fix
 - Members can leave their clan normally.
 - If the leaving player is the final clan member, the clan document is removed automatically.
 - If the leader leaves while members remain, leadership transfers to the longest-serving remaining member.
 - Legacy member records without `joinedAt` are now included correctly in leave/transfer logic.
 - Stale `memberCount` is repaired to 1 before final-clan deletion when necessary.
+
+
+## V2.1.7b fix
+- Clears the deleted clan from Clan Hall immediately after the final member leaves.
+- Clears stale clan card/map title/member roster when Firestore membership becomes null or the clan document no longer exists.
+- Disables clan-only controls while the player is not in a clan.

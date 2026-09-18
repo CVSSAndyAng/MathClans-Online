@@ -64,7 +64,15 @@ window.MathClansGame={
     });
     renderMembers();renderPresence();renderTeamBars();
   },
-  setClan(clan){if(!clan)return;state.clan={...state.clan,...clan};if(Number.isFinite(clan.memberCount))state.clan.memberCount=clan.memberCount;save();init();},
+  setClan(clan){
+    if(!clan){
+      state.clan={name:'No Clan',guardian:'🏰',region:'—',rating:0,influence:0,memberCount:0,ranking:null};
+      selectedMembers.clear();
+      members.splice(0,members.length);
+      save();init();return;
+    }
+    state.clan={...state.clan,...clan};if(Number.isFinite(clan.memberCount))state.clan.memberCount=clan.memberCount;save();init();
+  },
   setRankings(rows){window.__mathclansLiveRankings=Array.isArray(rows)?rows:[];renderRanking();},
   setPlayerRankings(rows){window.__mathclansPlayerRankings=Array.isArray(rows)?rows:[];renderRanking();},
   setPlayerClan(clanId,role){state.player.clanId=clanId||null;state.player.clanRole=role||null;save();},
@@ -240,7 +248,7 @@ function setAudioVolume(value){
 function init(){
  if(!document.body.dataset.screen) document.body.dataset.screen='map';
  $('#playerName').textContent=state.player.name;$('#playerLevel').textContent=state.player.level;$('#playerXp').textContent=state.player.xp;$('#crystals').textContent=state.player.crystals;$('#miniAvatar').textContent=state.player.avatar;
- $('#mapClanName').textContent=$('#clanTitle').textContent=$('#clanNameCard').textContent=state.clan.name;$('#clanRating').textContent=state.clan.rating;$('#clanInfluence').textContent=state.clan.influence+'%';const cr=$('#clanRank');if(cr)cr.textContent=Number.isFinite(state.clan.ranking)?'#'+state.clan.ranking:'#—';$('#memberCount').textContent=members.length;
+ const hasClan=Boolean(state.player.clanId);const clanView=hasClan?state.clan:{name:'No Clan',guardian:'🏰',region:'—',rating:0,influence:0,ranking:null};$('#mapClanName').textContent=$('#clanTitle').textContent=$('#clanNameCard').textContent=clanView.name;$('#clanRating').textContent=hasClan?clanView.rating:'—';$('#clanInfluence').textContent=(hasClan?clanView.influence:0)+'%';const cr=$('#clanRank');if(cr)cr.textContent=hasClan&&Number.isFinite(clanView.ranking)?'#'+clanView.ranking:'#—';$('#memberCount').textContent=hasClan?members.length:0;const ecb=$('#editClanBtn');if(ecb){ecb.disabled=!hasClan;ecb.style.display=hasClan?'':'none'}const fbb=$('#findBattleBtn');if(fbb)fbb.disabled=!hasClan||members.length===0;
  renderRivals();renderSkills();renderSkillHud();renderMembers();renderTeamBars();renderPresence();renderHero();renderRanking();wire();
 }
 function wire(){
